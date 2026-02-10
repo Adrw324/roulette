@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Racing Roulette</title>
+<style>
+:root{--bg-dark:#0a0a1a;--bg-card:#141428;--bg-input:#1e1e3a;--accent:#e10600;--accent-glow:rgba(225,6,0,.4);--text-primary:#fff;--text-secondary:#8888aa;--border:#2a2a4a;--track-bg:#1a1a2e;--finish-line:#ffcc00}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-dark);color:var(--text-primary);overflow-x:hidden}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+input{font-family:inherit;outline:none;border:none}
+
+.app{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2rem 1rem;background:radial-gradient(ellipse at top,#15152a 0%,var(--bg-dark) 70%)}
+.app-header{text-align:center;margin-bottom:2rem}
+.app-title{font-size:2.4rem;font-weight:800;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 0%,#e10600 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.app-subtitle{color:var(--text-secondary);font-size:.95rem;margin-top:.3rem}
+
+.input-section{width:100%;max-width:600px;margin-bottom:2rem}
+.option-form{display:flex;gap:.5rem;margin-bottom:1rem}
+.option-input{flex:1;padding:.75rem 1rem;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-size:1rem;transition:border-color .2s}
+.option-input:focus{border-color:var(--accent)}
+.option-input::placeholder{color:var(--text-secondary)}
+.add-btn{padding:.75rem 1.5rem;background:var(--accent);color:#fff;border-radius:10px;font-size:1rem;font-weight:600;transition:transform .1s,box-shadow .2s}
+.add-btn:hover{transform:scale(1.03);box-shadow:0 0 20px var(--accent-glow)}
+.add-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+
+.options-list{display:flex;flex-wrap:wrap;gap:.5rem}
+.option-chip{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;font-size:.9rem;animation:chipIn .2s ease-out}
+@keyframes chipIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.remove-btn{background:none!important;color:var(--text-secondary);font-size:1.1rem;padding:0;line-height:1;transition:color .15s}
+.remove-btn:hover{color:var(--accent)}
+
+.start-btn{padding:1rem 3rem;background:linear-gradient(135deg,#e10600 0%,#ff3333 100%);color:#fff;border-radius:14px;font-size:1.2rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;transition:transform .15s,box-shadow .25s;margin-bottom:2rem}
+.start-btn:hover{transform:scale(1.05);box-shadow:0 0 40px var(--accent-glow),0 4px 20px rgba(0,0,0,.3)}
+.start-btn:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
+
+.race-container{width:100%;max-width:800px;margin:0 auto}
+.race-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding:0 .5rem}
+.race-status{font-size:.9rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.1em}
+
+.race-track{background:var(--track-bg);border-radius:16px;padding:1rem;border:1px solid var(--border);position:relative;overflow:hidden}
+.track-lane{display:flex;align-items:center;padding:.6rem 0;position:relative}
+.track-lane+.track-lane{border-top:1px dashed rgba(255,255,255,.06)}
+.racer-name{width:80px;font-size:.8rem;font-weight:600;color:var(--text-secondary);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lane-track{flex:1;height:36px;background:rgba(255,255,255,.03);border-radius:8px;position:relative;overflow:hidden}
+.lane-track::after{content:'';position:absolute;right:0;top:0;bottom:0;width:3px;background:var(--finish-line);box-shadow:0 0 8px rgba(255,204,0,.5)}
+.racer-car{position:absolute;top:50%;transform:translateY(-50%);height:28px;display:flex;align-items:center;gap:2px;transition:left .1s linear}
+.car-body{font-size:1.4rem;line-height:1}
+.car-trail{position:absolute;right:100%;top:50%;transform:translateY(-50%);height:4px;border-radius:2px;opacity:.4;width:30px}
+.position-badge{width:28px;font-size:.75rem;font-weight:700;text-align:center;flex-shrink:0}
+
+.countdown-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50}
+.countdown-text{font-size:8rem;font-weight:900;color:var(--accent);text-shadow:0 0 60px var(--accent-glow);animation:countPulse .8s ease-out}
+.countdown-go{font-size:6rem;font-weight:900;color:#00cc44;text-shadow:0 0 60px rgba(0,204,68,.5);animation:countPulse .6s ease-out}
+@keyframes countPulse{0%{transform:scale(2);opacity:0}50%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:.8}}
+
+.result-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:100;animation:fadeIn .3s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.result-card{background:var(--bg-card);border:1px solid var(--border);border-radius:24px;padding:3rem;text-align:center;max-width:480px;width:90%;animation:resultPop .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
+.result-card::before{content:'';position:absolute;inset:-2px;border-radius:25px;background:linear-gradient(135deg,var(--accent),transparent,var(--finish-line));z-index:-1;opacity:.5}
+@keyframes resultPop{from{opacity:0;transform:scale(.8) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.trophy{font-size:4rem;margin-bottom:1rem;animation:trophyBounce .6s ease-out .3s both}
+@keyframes trophyBounce{0%{transform:scale(0) rotate(-20deg)}60%{transform:scale(1.2) rotate(5deg)}100%{transform:scale(1) rotate(0)}}
+.result-label{font-size:.9rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.15em;margin-bottom:.5rem}
+.winner-name{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,var(--finish-line),#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:2rem}
+.standings{text-align:left;margin-bottom:2rem}
+.standings-title{font-size:.8rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem}
+.standing-row{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;font-size:.95rem}
+.standing-row+.standing-row{border-top:1px solid rgba(255,255,255,.05)}
+.standing-pos{font-weight:700;width:24px;text-align:center;color:var(--text-secondary)}
+.standing-pos.gold{color:#ffd700}.standing-pos.silver{color:#c0c0c0}.standing-pos.bronze{color:#cd7f32}
+.standing-name{flex:1}
+.standing-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.reset-btn{padding:.85rem 2.5rem;background:linear-gradient(135deg,#e10600 0%,#ff3333 100%);color:#fff;border-radius:12px;font-size:1rem;font-weight:700;letter-spacing:.03em;transition:transform .15s,box-shadow .25s}
+.reset-btn:hover{transform:scale(1.05);box-shadow:0 0 30px var(--accent-glow)}
+
+.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:99;overflow:hidden}
+.confetti-piece{position:absolute;width:10px;height:10px;top:-10px;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+
+@media(max-width:600px){
+  .app{padding:1rem .5rem}
+  .app-title{font-size:1.6rem}
+  .race-track{padding:.5rem}
+  .racer-name{width:50px;font-size:.7rem}
+  .result-card{padding:2rem 1.5rem}
+  .winner-name{font-size:1.6rem}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const COLORS=['#e10600','#0090ff','#ff8700','#00d2be','#2b4562','#006f62','#b6babd','#900000','#005aff','#ffffff','#52e252','#ff69b4'];
+const CONFETTI_COLORS=['#e10600','#ffcc00','#0090ff','#00d2be','#ff8700','#ffffff','#52e252'];
+
+let options=[];
+let racers=[];
+let phase='setup';
+let animId=0;
+let winnerId=null;
+let finishCount=0;
+let idCounter=0;
+let countdownVal=3;
+let countdownTimer=null;
+
+const $=s=>document.querySelector(s);
+const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!==undefined)e.innerHTML=html;return e};
+
+function render(){
+  const app=$('#app');
+  app.innerHTML='';
+
+  const wrap=el('div','app');
+
+  // Header
+  const header=el('header','app-header');
+  header.innerHTML='<h1 class="app-title">Racing Roulette</h1><p class="app-subtitle">Add options and let them race!</p>';
+  wrap.appendChild(header);
+
+  if(phase==='setup'){
+    // Input section
+    const sec=el('div','input-section');
+    const form=el('form','option-form');
+    const inp=el('input','option-input');
+    inp.type='text';inp.placeholder='Enter an option...';inp.maxLength=30;inp.id='mainInput';
+    const addBtn=el('button','add-btn','Add');
+    addBtn.type='submit';
+    if(options.length>=12)addBtn.disabled=true;
+    form.appendChild(inp);form.appendChild(addBtn);
+    form.onsubmit=e=>{
+      e.preventDefault();
+      const v=inp.value.trim();
+      if(!v||options.length>=12)return;
+      options.push({id:'opt-'+(++idCounter),name:v,color:COLORS[options.length%COLORS.length]});
+      render();
+      setTimeout(()=>{const i=$('#mainInput');if(i)i.focus()},0);
+    };
+    sec.appendChild(form);
+
+    const list=el('div','options-list');
+    options.forEach((o,i)=>{
+      const chip=el('div','option-chip');
+      chip.innerHTML=`<span class="color-dot" style="background:${COLORS[i%COLORS.length]}"></span><span>${esc(o.name)}</span>`;
+      const rb=el('button','remove-btn','&times;');
+      rb.onclick=()=>{options=options.filter(x=>x.id!==o.id);options.forEach((x,j)=>x.color=COLORS[j%COLORS.length]);render()};
+      chip.appendChild(rb);
+      list.appendChild(chip);
+    });
+    sec.appendChild(list);
+    wrap.appendChild(sec);
+
+    // Start button
+    const btn=el('button','start-btn');
+    if(options.length<2){btn.disabled=true;btn.textContent=`Add ${2-options.length} more option${options.length===0?'s':''}`}
+    else{btn.textContent='Start Race!'}
+    btn.onclick=()=>{if(options.length>=2)startCountdown()};
+    wrap.appendChild(btn);
+  }
+
+  if(phase==='countdown'){
+    // Countdown overlay
+    const ov=el('div','countdown-overlay');
+    if(countdownVal>0) ov.innerHTML=`<div class="countdown-text" key="${countdownVal}">${countdownVal}</div>`;
+    else ov.innerHTML='<div class="countdown-go">GO!</div>';
+    wrap.appendChild(ov);
+  }
+
+  if(phase==='racing'||phase==='countdown'){
+    const rc=el('div','race-container');
+    const rh=el('div','race-header');
+    rh.innerHTML=`<span class="race-status">${phase==='countdown'?'Get Ready...':'Racing!'}</span>`;
+    rc.appendChild(rh);
+    rc.appendChild(buildTrack());
+    wrap.appendChild(rc);
+  }
+
+  if(phase==='result'){
+    const rc=el('div','race-container');
+    rc.appendChild(buildTrack());
+    wrap.appendChild(rc);
+    wrap.appendChild(buildResult());
+    wrap.appendChild(buildConfetti());
+  }
+
+  app.appendChild(wrap);
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+function buildTrack(){
+  const sorted=[...racers].sort((a,b)=>{
+    if(a.finished&&b.finished)return a.finishOrder-b.finishOrder;
+    if(a.finished)return-1;if(b.finished)return 1;
+    return b.progress-a.progress;
+  });
+  const getPos=r=>sorted.findIndex(x=>x.id===r.id)+1;
+
+  const track=el('div','race-track');
+  racers.forEach(r=>{
+    const lane=el('div','track-lane');
+    const name=el('span','racer-name',esc(r.name));
+    name.title=r.name;
+    const lt=el('div','lane-track');
+    const car=el('div','racer-car');
+    car.style.left=`calc(${Math.min(r.progress,97)}% - 12px)`;
+    car.style.filter=`drop-shadow(0 0 6px ${r.color})`;
+    const trail=el('div','car-trail');
+    trail.style.background=r.color;
+    const body=el('span','car-body',r.finished?'\u{1F3C1}':'\u{1F3CE}\uFE0F');
+    car.appendChild(trail);car.appendChild(body);
+    lt.appendChild(car);
+    const badge=el('span','position-badge',`P${getPos(r)}`);
+    badge.style.color=r.color;
+    lane.appendChild(name);lane.appendChild(lt);lane.appendChild(badge);
+    track.appendChild(lane);
+  });
+  return track;
+}
+
+function buildResult(){
+  const standings=[...racers].sort((a,b)=>a.finishOrder-b.finishOrder);
+  const winner=standings[0];
+  const medals=['\u{1F947}','\u{1F948}','\u{1F949}'];
+  const posClasses=['gold','silver','bronze'];
+
+  const ov=el('div','result-overlay');
+  ov.onclick=e=>{if(e.target===ov)resetAll()};
+  const card=el('div','result-card');
+  card.innerHTML=`
+    <div class="trophy">\u{1F3C6}</div>
+    <div class="result-label">Winner</div>
+    <div class="winner-name">${esc(winner.name)}</div>
+    <div class="standings">
+      <div class="standings-title">Final Standings</div>
+      ${standings.map((r,i)=>`
+        <div class="standing-row">
+          <span class="standing-pos ${posClasses[i]||''}">${medals[i]||i+1}</span>
+          <span class="standing-dot" style="background:${r.color}"></span>
+          <span class="standing-name">${esc(r.name)}</span>
+        </div>`).join('')}
+    </div>`;
+  const btn=el('button','reset-btn','Race Again');
+  btn.onclick=resetAll;
+  card.appendChild(btn);
+  ov.appendChild(card);
+  return ov;
+}
+
+function buildConfetti(){
+  const c=el('div','confetti-container');
+  for(let i=0;i<50;i++){
+    const p=el('div','confetti-piece');
+    const color=CONFETTI_COLORS[i%CONFETTI_COLORS.length];
+    const left=Math.random()*100;
+    const delay=Math.random()*2;
+    const dur=2+Math.random()*2;
+    const size=6+Math.random()*8;
+    p.style.cssText=`left:${left}%;width:${size}px;height:${size}px;background:${color};border-radius:${Math.random()>.5?'50%':'0'};animation-delay:${delay}s;animation-duration:${dur}s`;
+    c.appendChild(p);
+  }
+  return c;
+}
+
+function startCountdown(){
+  const winIdx=Math.floor(Math.random()*options.length);
+  winnerId=options[winIdx].id;
+  finishCount=0;
+  racers=options.map(o=>({id:o.id,name:o.name,color:o.color,progress:0,speed:.3+Math.random()*.3,finished:false,finishOrder:0}));
+  countdownVal=3;
+  phase='countdown';
+  render();
+
+  countdownTimer=setInterval(()=>{
+    countdownVal--;
+    if(countdownVal<0){
+      clearInterval(countdownTimer);
+      phase='racing';
+      render();
+      startRaceLoop();
+      return;
+    }
+    render();
+  },800);
+}
+
+function startRaceLoop(){
+  let lastTime=performance.now();
+
+  function tick(now){
+    const dt=Math.min(now-lastTime,50);
+    lastTime=now;
+
+    let allDone=true;
+    racers.forEach(r=>{
+      if(r.finished)return;
+      allDone=false;
+
+      const jitter=(Math.random()-.5)*.8;
+      const accel=r.speed+jitter;
+      const isWinner=r.id===winnerId;
+      let boost=0;
+      const p=r.progress;
+
+      if(p>60){
+        if(isWinner){boost=.3+(p-60)*.015}
+        else{boost=-.05-(p-60)*.008}
+      }else if(p>30){
+        if(isWinner)boost=.1;
+      }
+
+      const delta=(accel+boost)*(dt/16);
+      r.progress=Math.min(r.progress+Math.max(delta,.05),100);
+      r.speed+=((Math.random()-.5)*.02);
+
+      if(r.progress>=100&&!r.finished){
+        r.finished=true;
+        r.finishOrder=++finishCount;
+      }
+    });
+
+    // Update track in-place for performance
+    updateTrackDOM();
+
+    if(allDone){
+      phase='result';
+      render();
+      return;
+    }
+    animId=requestAnimationFrame(tick);
+  }
+  animId=requestAnimationFrame(tick);
+}
+
+function updateTrackDOM(){
+  const sorted=[...racers].sort((a,b)=>{
+    if(a.finished&&b.finished)return a.finishOrder-b.finishOrder;
+    if(a.finished)return-1;if(b.finished)return 1;
+    return b.progress-a.progress;
+  });
+  const getPos=r=>sorted.findIndex(x=>x.id===r.id)+1;
+
+  const cars=document.querySelectorAll('.racer-car');
+  const badges=document.querySelectorAll('.position-badge');
+  const bodies=document.querySelectorAll('.car-body');
+  racers.forEach((r,i)=>{
+    if(cars[i])cars[i].style.left=`calc(${Math.min(r.progress,97)}% - 12px)`;
+    if(badges[i])badges[i].textContent=`P${getPos(r)}`;
+    if(bodies[i])bodies[i].textContent=r.finished?'\u{1F3C1}':'\u{1F3CE}\uFE0F';
+  });
+}
+
+function resetAll(){
+  cancelAnimationFrame(animId);
+  clearInterval(countdownTimer);
+  phase='setup';
+  racers=[];
+  winnerId=null;
+  finishCount=0;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
