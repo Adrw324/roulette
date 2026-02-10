@@ -5,328 +5,588 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Racing Roulette</title>
 <style>
-:root{--bg-dark:#0a0a1a;--bg-card:#141428;--bg-input:#1e1e3a;--accent:#e10600;--accent-glow:rgba(225,6,0,.4);--text-primary:#fff;--text-secondary:#8888aa;--border:#2a2a4a;--track-bg:#1a1a2e;--finish-line:#ffcc00}
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;width:100%;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-dark);color:var(--text-primary);overflow-x:hidden}
+html,body{height:100%;width:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#0a0a12;color:#fff;overflow:hidden}
 button{cursor:pointer;border:none;outline:none;font-family:inherit}
 input{font-family:inherit;outline:none;border:none}
 
-.app{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2rem 1rem;background:radial-gradient(ellipse at top,#15152a 0%,var(--bg-dark) 70%)}
-.app-header{text-align:center;margin-bottom:2rem}
-.app-title{font-size:2.4rem;font-weight:800;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 0%,#e10600 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.app-subtitle{color:var(--text-secondary);font-size:.95rem;margin-top:.3rem}
+/* ===== SETUP SCREEN ===== */
+.setup-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;background:radial-gradient(ellipse at top,#15152a,#0a0a12 70%)}
+.setup-title{font-size:2.8rem;font-weight:900;letter-spacing:-.02em;background:linear-gradient(135deg,#fff,#e10600);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.3rem}
+.setup-sub{color:#666;font-size:.95rem;margin-bottom:2rem}
+.input-row{display:flex;gap:.5rem;margin-bottom:1rem;width:100%;max-width:500px}
+.input-row input{flex:1;padding:.75rem 1rem;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:10px;color:#fff;font-size:1rem}
+.input-row input:focus{border-color:#e10600}
+.input-row input::placeholder{color:#555}
+.input-row button{padding:.75rem 1.5rem;background:#e10600;color:#fff;border-radius:10px;font-size:1rem;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:2rem;max-width:500px;justify-content:center}
+.chip{display:flex;align-items:center;gap:.4rem;padding:.4rem .7rem;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:8px;font-size:.85rem}
+.chip .dot{width:10px;height:10px;border-radius:50%}
+.chip .x{background:none;color:#666;font-size:1rem;padding:0;line-height:1}
+.chip .x:hover{color:#e10600}
+.go-btn{padding:1rem 3.5rem;background:linear-gradient(135deg,#e10600,#ff3333);color:#fff;border-radius:14px;font-size:1.3rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;transition:transform .15s,box-shadow .2s}
+.go-btn:hover{transform:scale(1.05);box-shadow:0 0 40px rgba(225,6,0,.4)}
+.go-btn:disabled{opacity:.25;transform:none;box-shadow:none;cursor:not-allowed}
 
-.input-section{width:100%;max-width:600px;margin-bottom:2rem}
-.option-form{display:flex;gap:.5rem;margin-bottom:1rem}
-.option-input{flex:1;padding:.75rem 1rem;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-size:1rem;transition:border-color .2s}
-.option-input:focus{border-color:var(--accent)}
-.option-input::placeholder{color:var(--text-secondary)}
-.add-btn{padding:.75rem 1.5rem;background:var(--accent);color:#fff;border-radius:10px;font-size:1rem;font-weight:600;transition:transform .1s,box-shadow .2s}
-.add-btn:hover{transform:scale(1.03);box-shadow:0 0 20px var(--accent-glow)}
-.add-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+/* ===== RACE SCREEN ===== */
+.race-screen{position:fixed;inset:0;background:#111;overflow:hidden;display:none}
+.race-screen.active{display:block}
 
-.options-list{display:flex;flex-wrap:wrap;gap:.5rem}
-.option-chip{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;font-size:.9rem;animation:chipIn .2s ease-out}
-@keyframes chipIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
-.color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.remove-btn{background:none!important;color:var(--text-secondary);font-size:1.1rem;padding:0;line-height:1;transition:color .15s}
-.remove-btn:hover{color:var(--accent)}
+/* Track area */
+.track-viewport{position:absolute;inset:0;overflow:hidden}
+.track-world{position:absolute;top:0;left:0;width:100%;height:100%;transition:transform .8s cubic-bezier(.25,.46,.45,.94)}
 
-.start-btn{padding:1rem 3rem;background:linear-gradient(135deg,#e10600 0%,#ff3333 100%);color:#fff;border-radius:14px;font-size:1.2rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;transition:transform .15s,box-shadow .25s;margin-bottom:2rem}
-.start-btn:hover{transform:scale(1.05);box-shadow:0 0 40px var(--accent-glow),0 4px 20px rgba(0,0,0,.3)}
-.start-btn:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
+/* Ground */
+.ground{position:absolute;bottom:0;left:0;right:0;height:55%;background:linear-gradient(180deg,#1a3a1a 0%,#0d1f0d 100%)}
+.ground-stripe{position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(255,255,255,.05)}
 
-.race-container{width:100%;max-width:800px;margin:0 auto}
-.race-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding:0 .5rem}
-.race-status{font-size:.9rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.1em}
+/* Sky */
+.sky{position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(180deg,#0a0a1e 0%,#1a1a3e 60%,#2a1a1a 100%)}
+.stars{position:absolute;inset:0}
+.star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%}
 
-.race-track{background:var(--track-bg);border-radius:16px;padding:1rem;border:1px solid var(--border);position:relative;overflow:hidden}
-.track-lane{display:flex;align-items:center;padding:.6rem 0;position:relative}
-.track-lane+.track-lane{border-top:1px dashed rgba(255,255,255,.06)}
-.racer-name{width:80px;font-size:.8rem;font-weight:600;color:var(--text-secondary);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lane-track{flex:1;height:36px;background:rgba(255,255,255,.03);border-radius:8px;position:relative;overflow:hidden}
-.lane-track::after{content:'';position:absolute;right:0;top:0;bottom:0;width:3px;background:var(--finish-line);box-shadow:0 0 8px rgba(255,204,0,.5)}
-.racer-car{position:absolute;top:50%;transform:translateY(-50%);height:28px;display:flex;align-items:center;gap:2px;transition:left .1s linear}
-.car-body{font-size:1.4rem;line-height:1}
-.car-trail{position:absolute;right:100%;top:50%;transform:translateY(-50%);height:4px;border-radius:2px;opacity:.4;width:30px}
-.position-badge{width:28px;font-size:.75rem;font-weight:700;text-align:center;flex-shrink:0}
+/* Track surface */
+.track-surface{position:absolute;bottom:15%;left:-200%;width:500%;height:30%;background:#333;border-top:3px solid #555;border-bottom:3px solid #555;perspective:800px;transform-style:preserve-3d}
+.track-lines{position:absolute;inset:0;overflow:hidden}
+.track-dash{position:absolute;top:50%;height:2px;width:40px;background:rgba(255,255,255,.3);transform:translateY(-50%)}
 
-.countdown-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50}
-.countdown-text{font-size:8rem;font-weight:900;color:var(--accent);text-shadow:0 0 60px var(--accent-glow);animation:countPulse .8s ease-out}
-.countdown-go{font-size:6rem;font-weight:900;color:#00cc44;text-shadow:0 0 60px rgba(0,204,68,.5);animation:countPulse .6s ease-out}
-@keyframes countPulse{0%{transform:scale(2);opacity:0}50%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:.8}}
+/* Racers */
+.racer{position:absolute;bottom:calc(15% + 5%);transition:left .15s linear;z-index:10}
+.racer-car-body{position:relative;width:60px;height:24px}
+.car-emoji{font-size:1.8rem;line-height:1;filter:drop-shadow(0 0 8px var(--c));position:relative;z-index:2}
+.car-name-tag{position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:var(--c);color:#fff;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;opacity:.9;letter-spacing:.02em}
+.speed-lines{position:absolute;right:100%;top:50%;transform:translateY(-50%);width:50px;height:20px;overflow:hidden;opacity:0;transition:opacity .3s}
+.speed-line{position:absolute;height:1px;background:linear-gradient(90deg,transparent,var(--c));right:0;animation:speedLine .3s linear infinite}
+@keyframes speedLine{0%{width:0;opacity:1}100%{width:50px;opacity:0}}
 
-.result-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:100;animation:fadeIn .3s ease-out}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.result-card{background:var(--bg-card);border:1px solid var(--border);border-radius:24px;padding:3rem;text-align:center;max-width:480px;width:90%;animation:resultPop .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
-.result-card::before{content:'';position:absolute;inset:-2px;border-radius:25px;background:linear-gradient(135deg,var(--accent),transparent,var(--finish-line));z-index:-1;opacity:.5}
-@keyframes resultPop{from{opacity:0;transform:scale(.8) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.trophy{font-size:4rem;margin-bottom:1rem;animation:trophyBounce .6s ease-out .3s both}
-@keyframes trophyBounce{0%{transform:scale(0) rotate(-20deg)}60%{transform:scale(1.2) rotate(5deg)}100%{transform:scale(1) rotate(0)}}
-.result-label{font-size:.9rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.15em;margin-bottom:.5rem}
-.winner-name{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,var(--finish-line),#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:2rem}
-.standings{text-align:left;margin-bottom:2rem}
-.standings-title{font-size:.8rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem}
-.standing-row{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;font-size:.95rem}
-.standing-row+.standing-row{border-top:1px solid rgba(255,255,255,.05)}
-.standing-pos{font-weight:700;width:24px;text-align:center;color:var(--text-secondary)}
-.standing-pos.gold{color:#ffd700}.standing-pos.silver{color:#c0c0c0}.standing-pos.bronze{color:#cd7f32}
-.standing-name{flex:1}
-.standing-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.reset-btn{padding:.85rem 2.5rem;background:linear-gradient(135deg,#e10600 0%,#ff3333 100%);color:#fff;border-radius:12px;font-size:1rem;font-weight:700;letter-spacing:.03em;transition:transform .15s,box-shadow .25s}
-.reset-btn:hover{transform:scale(1.05);box-shadow:0 0 30px var(--accent-glow)}
+/* Sparks on overtake */
+.spark-container{position:absolute;pointer-events:none;z-index:20}
+.spark{position:absolute;width:3px;height:3px;border-radius:50%;animation:sparkAnim .6s ease-out forwards}
+@keyframes sparkAnim{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--sx),var(--sy)) scale(0)}}
 
-.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:99;overflow:hidden}
-.confetti-piece{position:absolute;width:10px;height:10px;top:-10px;animation:confettiFall linear forwards}
-@keyframes confettiFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+/* Camera flash / zoom effects */
+.flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:50;transition:opacity .1s}
+.flash.on{opacity:.15;transition:opacity 0s}
 
+/* Shake */
+.shake{animation:shakeAnim .4s ease-out}
+@keyframes shakeAnim{0%,100%{transform:translate(0,0)}20%{transform:translate(-3px,2px)}40%{transform:translate(3px,-2px)}60%{transform:translate(-2px,1px)}80%{transform:translate(2px,-1px)}}
+
+/* Commentary overlay */
+.commentary{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);font-size:3rem;font-weight:900;color:#fff;text-shadow:0 0 40px rgba(225,6,0,.8),0 0 80px rgba(225,6,0,.4);z-index:40;pointer-events:none;white-space:nowrap;opacity:0;letter-spacing:.05em}
+.commentary.show{animation:commentPop .8s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes commentPop{0%{transform:translate(-50%,-50%) scale(2);opacity:0}15%{transform:translate(-50%,-50%) scale(1);opacity:1}70%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.8);opacity:0}}
+
+/* HUD */
+.hud{position:fixed;top:0;left:0;right:0;z-index:30;pointer-events:none}
+.hud-top{display:flex;justify-content:space-between;align-items:flex-start;padding:1rem 1.5rem}
+.hud-standings{background:rgba(0,0,0,.7);backdrop-filter:blur(8px);border-radius:12px;padding:.8rem 1rem;min-width:160px;border:1px solid rgba(255,255,255,.1)}
+.hud-standings-title{font-size:.65rem;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem}
+.hud-row{display:flex;align-items:center;gap:.5rem;padding:.25rem 0;font-size:.8rem;font-weight:600;transition:all .3s}
+.hud-pos{width:22px;color:#888;font-weight:700}
+.hud-pos.p1{color:#ffd700}
+.hud-pos.p2{color:#c0c0c0}
+.hud-pos.p3{color:#cd7f32}
+.hud-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.hud-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-cam{background:rgba(0,0,0,.7);backdrop-filter:blur(8px);border-radius:12px;padding:.6rem 1rem;font-size:.7rem;color:#e10600;font-weight:700;text-transform:uppercase;letter-spacing:.1em;border:1px solid rgba(225,6,0,.3);display:flex;align-items:center;gap:.5rem}
+.hud-cam .rec{width:8px;height:8px;border-radius:50%;background:#e10600;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hud-progress{position:fixed;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,.1);z-index:30}
+.hud-progress-bar{height:100%;background:linear-gradient(90deg,#e10600,#ffcc00);transition:width .2s;width:0}
+
+/* Countdown */
+.countdown-full{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:60}
+.cd-num{font-size:12rem;font-weight:900;color:#e10600;text-shadow:0 0 100px rgba(225,6,0,.6);animation:cdPulse .7s ease-out}
+.cd-go{font-size:8rem;font-weight:900;color:#00dd44;text-shadow:0 0 100px rgba(0,221,68,.5);animation:cdPulse .5s ease-out}
+@keyframes cdPulse{0%{transform:scale(3);opacity:0}40%{transform:scale(1);opacity:1}100%{transform:scale(.95);opacity:.9}}
+
+/* Result */
+.result-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;z-index:70}
+.result-card{background:#141428;border:1px solid #2a2a4a;border-radius:24px;padding:2.5rem;text-align:center;max-width:420px;width:90%;animation:resultPop .5s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
+.result-card::before{content:'';position:absolute;inset:-2px;border-radius:25px;background:linear-gradient(135deg,#e10600,transparent,#ffcc00);z-index:-1;opacity:.5}
+@keyframes resultPop{from{opacity:0;transform:scale(.7) translateY(30px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.r-trophy{font-size:4rem;margin-bottom:.5rem;animation:tBounce .6s ease-out .2s both}
+@keyframes tBounce{0%{transform:scale(0) rotate(-20deg)}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0)}}
+.r-label{font-size:.85rem;color:#888;text-transform:uppercase;letter-spacing:.15em;margin-bottom:.4rem}
+.r-winner{font-size:2rem;font-weight:900;background:linear-gradient(135deg,#ffcc00,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.5rem}
+.r-standings{text-align:left;margin-bottom:1.5rem}
+.r-standings-title{font-size:.7rem;color:#666;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem}
+.r-row{display:flex;align-items:center;gap:.6rem;padding:.4rem 0;font-size:.9rem}
+.r-row+.r-row{border-top:1px solid rgba(255,255,255,.05)}
+.r-pos{font-weight:700;width:28px;text-align:center;font-size:.85rem}
+.r-pos.gold{color:#ffd700}.r-pos.silver{color:#c0c0c0}.r-pos.bronze{color:#cd7f32}
+.r-dot{width:8px;height:8px;border-radius:50%}
+.r-name{flex:1}
+.r-btn{padding:.8rem 2.5rem;background:linear-gradient(135deg,#e10600,#ff3333);color:#fff;border-radius:12px;font-size:1rem;font-weight:700;transition:transform .15s,box-shadow .2s}
+.r-btn:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(225,6,0,.4)}
+
+/* Confetti */
+.confetti-box{position:fixed;inset:0;pointer-events:none;z-index:65;overflow:hidden}
+.confetti-p{position:absolute;top:-20px;animation:cFall linear forwards}
+@keyframes cFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+/* Responsive */
 @media(max-width:600px){
-  .app{padding:1rem .5rem}
-  .app-title{font-size:1.6rem}
-  .race-track{padding:.5rem}
-  .racer-name{width:50px;font-size:.7rem}
-  .result-card{padding:2rem 1.5rem}
-  .winner-name{font-size:1.6rem}
+  .setup-title{font-size:1.8rem}
+  .commentary{font-size:1.8rem}
+  .cd-num{font-size:7rem}
+  .cd-go{font-size:5rem}
+  .hud-standings{min-width:120px;padding:.5rem .7rem}
+  .hud-row{font-size:.7rem}
+  .car-emoji{font-size:1.3rem}
+  .car-name-tag{font-size:.55rem}
+  .r-winner{font-size:1.5rem}
+  .result-card{padding:1.5rem}
 }
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="root"></div>
 <script>
-const COLORS=['#e10600','#0090ff','#ff8700','#00d2be','#2b4562','#006f62','#b6babd','#900000','#005aff','#ffffff','#52e252','#ff69b4'];
-const CONFETTI_COLORS=['#e10600','#ffcc00','#0090ff','#00d2be','#ff8700','#ffffff','#52e252'];
+var COLORS=['#e10600','#0090ff','#ff8700','#00d2be','#2b4562','#27f4d2','#b6babd','#ff69b4','#52e252','#ffcc00','#ff5599','#6644ff'];
+var CONFETTI_C=['#e10600','#ffcc00','#0090ff','#00d2be','#ff8700','#fff','#52e252','#ff69b4'];
+var COMMENTS_OVERTAKE=['OVERTAKE!','WHAT A MOVE!','INCREDIBLE!','UNBELIEVABLE!'];
+var COMMENTS_LEAD=['TAKES THE LEAD!','OUT IN FRONT!','LEADING THE PACK!'];
+var COMMENTS_FINAL=['FINAL LAP!','HERE WE GO!','THE FINISH IS NEAR!'];
+var COMMENTS_CLOSE=['NECK AND NECK!','SO CLOSE!','SIDE BY SIDE!'];
 
-let options=[];
-let racers=[];
-let phase='setup';
-let animId=0;
-let winnerId=null;
-let finishCount=0;
-let idCounter=0;
-let countdownVal=3;
-let countdownTimer=null;
+var options=[], racers=[], phase='setup';
+var animId=0, winnerId=null, finishCount=0, idCnt=0;
+var cameraMode='wide', cameraTimer=null, commentTimer=null;
+var lastLeaderId=null, overtakeCount=0, raceStartTime=0;
+var trackDashes=[], starEls=[];
 
-const $=s=>document.querySelector(s);
-const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!==undefined)e.innerHTML=html;return e};
+function qs(s){return document.querySelector(s)}
+function qsa(s){return document.querySelectorAll(s)}
+function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!==undefined)e.innerHTML=html;return e}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
 
 function render(){
-  const app=$('#app');
-  app.innerHTML='';
-
-  const wrap=el('div','app');
-
-  // Header
-  const header=el('header','app-header');
-  header.innerHTML='<h1 class="app-title">Racing Roulette</h1><p class="app-subtitle">Add options and let them race!</p>';
-  wrap.appendChild(header);
-
-  if(phase==='setup'){
-    // Input section
-    const sec=el('div','input-section');
-    const form=el('form','option-form');
-    const inp=el('input','option-input');
-    inp.type='text';inp.placeholder='Enter an option...';inp.maxLength=30;inp.id='mainInput';
-    const addBtn=el('button','add-btn','Add');
-    addBtn.type='submit';
-    if(options.length>=12)addBtn.disabled=true;
-    form.appendChild(inp);form.appendChild(addBtn);
-    form.onsubmit=e=>{
-      e.preventDefault();
-      const v=inp.value.trim();
-      if(!v||options.length>=12)return;
-      options.push({id:'opt-'+(++idCounter),name:v,color:COLORS[options.length%COLORS.length]});
-      render();
-      setTimeout(()=>{const i=$('#mainInput');if(i)i.focus()},0);
-    };
-    sec.appendChild(form);
-
-    const list=el('div','options-list');
-    options.forEach((o,i)=>{
-      const chip=el('div','option-chip');
-      chip.innerHTML=`<span class="color-dot" style="background:${COLORS[i%COLORS.length]}"></span><span>${esc(o.name)}</span>`;
-      const rb=el('button','remove-btn','&times;');
-      rb.onclick=()=>{options=options.filter(x=>x.id!==o.id);options.forEach((x,j)=>x.color=COLORS[j%COLORS.length]);render()};
-      chip.appendChild(rb);
-      list.appendChild(chip);
-    });
-    sec.appendChild(list);
-    wrap.appendChild(sec);
-
-    // Start button
-    const btn=el('button','start-btn');
-    if(options.length<2){btn.disabled=true;btn.textContent=`Add ${2-options.length} more option${options.length===0?'s':''}`}
-    else{btn.textContent='Start Race!'}
-    btn.onclick=()=>{if(options.length>=2)startCountdown()};
-    wrap.appendChild(btn);
-  }
-
-  if(phase==='countdown'){
-    // Countdown overlay
-    const ov=el('div','countdown-overlay');
-    if(countdownVal>0) ov.innerHTML=`<div class="countdown-text" key="${countdownVal}">${countdownVal}</div>`;
-    else ov.innerHTML='<div class="countdown-go">GO!</div>';
-    wrap.appendChild(ov);
-  }
-
-  if(phase==='racing'||phase==='countdown'){
-    const rc=el('div','race-container');
-    const rh=el('div','race-header');
-    rh.innerHTML=`<span class="race-status">${phase==='countdown'?'Get Ready...':'Racing!'}</span>`;
-    rc.appendChild(rh);
-    rc.appendChild(buildTrack());
-    wrap.appendChild(rc);
-  }
-
-  if(phase==='result'){
-    const rc=el('div','race-container');
-    rc.appendChild(buildTrack());
-    wrap.appendChild(rc);
-    wrap.appendChild(buildResult());
-    wrap.appendChild(buildConfetti());
-  }
-
-  app.appendChild(wrap);
+  var root=qs('#root');
+  root.innerHTML='';
+  if(phase==='setup') renderSetup(root);
 }
 
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function renderSetup(root){
+  var s=el('div','setup-screen');
+  s.innerHTML='<h1 class="setup-title">Racing Roulette</h1><p class="setup-sub">Add options and watch them race!</p>';
 
-function buildTrack(){
-  const sorted=[...racers].sort((a,b)=>{
-    if(a.finished&&b.finished)return a.finishOrder-b.finishOrder;
-    if(a.finished)return-1;if(b.finished)return 1;
-    return b.progress-a.progress;
-  });
-  const getPos=r=>sorted.findIndex(x=>x.id===r.id)+1;
+  var row=el('div','input-row');
+  var inp=el('input');
+  inp.type='text';inp.placeholder='Enter an option...';inp.maxLength=30;inp.id='mInp';
+  var ab=el('button','','Add');
+  if(options.length>=12)ab.disabled=true;
+  row.appendChild(inp);row.appendChild(ab);
+  var form=el('form');
+  form.appendChild(row);
+  form.onsubmit=function(e){
+    e.preventDefault();
+    var v=inp.value.trim();
+    if(!v||options.length>=12)return;
+    idCnt++;
+    options.push({id:'o'+idCnt,name:v,color:COLORS[options.length%COLORS.length]});
+    render();
+    setTimeout(function(){var i=qs('#mInp');if(i)i.focus()},10);
+  };
+  s.appendChild(form);
 
-  const track=el('div','race-track');
-  racers.forEach(r=>{
-    const lane=el('div','track-lane');
-    const name=el('span','racer-name',esc(r.name));
-    name.title=r.name;
-    const lt=el('div','lane-track');
-    const car=el('div','racer-car');
-    car.style.left=`calc(${Math.min(r.progress,97)}% - 12px)`;
-    car.style.filter=`drop-shadow(0 0 6px ${r.color})`;
-    const trail=el('div','car-trail');
-    trail.style.background=r.color;
-    const body=el('span','car-body',r.finished?'\u{1F3C1}':'\u{1F3CE}\uFE0F');
-    car.appendChild(trail);car.appendChild(body);
-    lt.appendChild(car);
-    const badge=el('span','position-badge',`P${getPos(r)}`);
-    badge.style.color=r.color;
-    lane.appendChild(name);lane.appendChild(lt);lane.appendChild(badge);
-    track.appendChild(lane);
-  });
-  return track;
-}
-
-function buildResult(){
-  const standings=[...racers].sort((a,b)=>a.finishOrder-b.finishOrder);
-  const winner=standings[0];
-  const medals=['\u{1F947}','\u{1F948}','\u{1F949}'];
-  const posClasses=['gold','silver','bronze'];
-
-  const ov=el('div','result-overlay');
-  ov.onclick=e=>{if(e.target===ov)resetAll()};
-  const card=el('div','result-card');
-  card.innerHTML=`
-    <div class="trophy">\u{1F3C6}</div>
-    <div class="result-label">Winner</div>
-    <div class="winner-name">${esc(winner.name)}</div>
-    <div class="standings">
-      <div class="standings-title">Final Standings</div>
-      ${standings.map((r,i)=>`
-        <div class="standing-row">
-          <span class="standing-pos ${posClasses[i]||''}">${medals[i]||i+1}</span>
-          <span class="standing-dot" style="background:${r.color}"></span>
-          <span class="standing-name">${esc(r.name)}</span>
-        </div>`).join('')}
-    </div>`;
-  const btn=el('button','reset-btn','Race Again');
-  btn.onclick=resetAll;
-  card.appendChild(btn);
-  ov.appendChild(card);
-  return ov;
-}
-
-function buildConfetti(){
-  const c=el('div','confetti-container');
-  for(let i=0;i<50;i++){
-    const p=el('div','confetti-piece');
-    const color=CONFETTI_COLORS[i%CONFETTI_COLORS.length];
-    const left=Math.random()*100;
-    const delay=Math.random()*2;
-    const dur=2+Math.random()*2;
-    const size=6+Math.random()*8;
-    p.style.cssText=`left:${left}%;width:${size}px;height:${size}px;background:${color};border-radius:${Math.random()>.5?'50%':'0'};animation-delay:${delay}s;animation-duration:${dur}s`;
-    c.appendChild(p);
+  var chips=el('div','chips');
+  for(var i=0;i<options.length;i++){
+    (function(o,idx){
+      var c=el('div','chip');
+      c.innerHTML='<span class="dot" style="background:'+COLORS[idx%COLORS.length]+'"></span><span>'+esc(o.name)+'</span>';
+      var x=el('button','x','&times;');
+      x.onclick=function(){
+        options=options.filter(function(z){return z.id!==o.id});
+        for(var j=0;j<options.length;j++)options[j].color=COLORS[j%COLORS.length];
+        render();
+      };
+      c.appendChild(x);
+      chips.appendChild(c);
+    })(options[i],i);
   }
-  return c;
+  s.appendChild(chips);
+
+  var gb=el('button','go-btn');
+  if(options.length<2){gb.disabled=true;gb.textContent='Add '+(2-options.length)+' more option'+(options.length===0?'s':'');}
+  else gb.textContent='START RACE';
+  gb.onclick=function(){if(options.length>=2)beginCountdown()};
+  s.appendChild(gb);
+  root.appendChild(s);
 }
 
-function startCountdown(){
-  const winIdx=Math.floor(Math.random()*options.length);
+/* ===== BUILD RACE SCENE ===== */
+function buildRaceScene(){
+  var root=qs('#root');
+  root.innerHTML='';
+
+  var scr=el('div','race-screen active');
+  scr.id='raceScr';
+
+  // Viewport
+  var vp=el('div','track-viewport');
+  var world=el('div','track-world');
+  world.id='trackWorld';
+
+  // Sky
+  var sky=el('div','sky');
+  var starsDiv=el('div','stars');
+  for(var i=0;i<60;i++){
+    var st=el('div','star');
+    st.style.cssText='left:'+Math.random()*100+'%;top:'+Math.random()*100+'%;width:'+(1+Math.random()*2)+'px;height:'+(1+Math.random()*2)+'px;opacity:'+(0.3+Math.random()*0.7);
+    starsDiv.appendChild(st);
+  }
+  sky.appendChild(starsDiv);
+  world.appendChild(sky);
+
+  // Ground
+  var ground=el('div','ground');
+  world.appendChild(ground);
+
+  // Track surface
+  var ts=el('div','track-surface');
+  ts.id='trackSurface';
+  var tl=el('div','track-lines');
+  tl.id='trackLines';
+  trackDashes=[];
+  for(var i=0;i<80;i++){
+    var d=el('div','track-dash');
+    d.style.left=(i*3)+'%';
+    tl.appendChild(d);
+    trackDashes.push(d);
+  }
+  ts.appendChild(tl);
+  world.appendChild(ts);
+
+  // Racers
+  var laneCount=racers.length;
+  for(var i=0;i<racers.length;i++){
+    var r=racers[i];
+    var rd=el('div','racer');
+    rd.id='racer-'+r.id;
+    rd.style.cssText='--c:'+r.color+';bottom:calc('+(18+i*(26/laneCount))+'%)';
+
+    var cb=el('div','racer-car-body');
+    var tag=el('div','car-name-tag',esc(r.name));
+    var emoji=el('span','car-emoji');
+    emoji.textContent='\u{1F3CE}\uFE0F';
+    var sl=el('div','speed-lines');
+    for(var j=0;j<3;j++){
+      var line=el('div','speed-line');
+      line.style.top=(3+j*7)+'px';
+      line.style.animationDelay=(j*0.1)+'s';
+      sl.appendChild(line);
+    }
+    cb.appendChild(tag);
+    cb.appendChild(emoji);
+    cb.appendChild(sl);
+    rd.appendChild(cb);
+    world.appendChild(rd);
+  }
+
+  vp.appendChild(world);
+  scr.appendChild(vp);
+
+  // Flash
+  var flash=el('div','flash');
+  flash.id='flash';
+  scr.appendChild(flash);
+
+  // Commentary
+  var comm=el('div','commentary');
+  comm.id='commentary';
+  scr.appendChild(comm);
+
+  // Spark container
+  var sparks=el('div','spark-container');
+  sparks.id='sparks';
+  scr.appendChild(sparks);
+
+  // HUD
+  var hud=el('div','hud');
+  var hudTop=el('div','hud-top');
+
+  var standings=el('div','hud-standings');
+  standings.id='hudStandings';
+  standings.innerHTML='<div class="hud-standings-title">STANDINGS</div>';
+  hudTop.appendChild(standings);
+
+  var cam=el('div','hud-cam');
+  cam.id='hudCam';
+  cam.innerHTML='<span class="rec"></span>WIDE CAM';
+  hudTop.appendChild(cam);
+
+  hud.appendChild(hudTop);
+  scr.appendChild(hud);
+
+  // Progress bar
+  var prog=el('div','hud-progress');
+  prog.innerHTML='<div class="hud-progress-bar" id="progBar"></div>';
+  scr.appendChild(prog);
+
+  // Countdown overlay
+  var cdov=el('div','countdown-full');
+  cdov.id='cdOverlay';
+  scr.appendChild(cdov);
+
+  root.appendChild(scr);
+}
+
+/* ===== COUNTDOWN ===== */
+function beginCountdown(){
+  var winIdx=Math.floor(Math.random()*options.length);
   winnerId=options[winIdx].id;
   finishCount=0;
-  racers=options.map(o=>({id:o.id,name:o.name,color:o.color,progress:0,speed:.3+Math.random()*.3,finished:false,finishOrder:0}));
-  countdownVal=3;
+  lastLeaderId=null;
+  overtakeCount=0;
+  racers=[];
+  for(var i=0;i<options.length;i++){
+    var o=options[i];
+    racers.push({id:o.id,name:o.name,color:o.color,progress:0,speed:0.3+Math.random()*0.2,finished:false,finishOrder:0,lane:i});
+  }
   phase='countdown';
-  render();
+  buildRaceScene();
 
-  countdownTimer=setInterval(()=>{
-    countdownVal--;
-    if(countdownVal<0){
-      clearInterval(countdownTimer);
-      phase='racing';
-      render();
-      startRaceLoop();
-      return;
+  var cdov=qs('#cdOverlay');
+  var count=3;
+  function tick(){
+    if(count>0){
+      cdov.innerHTML='<div class="cd-num">'+count+'</div>';
+      count--;
+      setTimeout(tick,800);
+    } else if(count===0){
+      cdov.innerHTML='<div class="cd-go">GO!</div>';
+      count--;
+      setTimeout(function(){
+        cdov.style.display='none';
+        phase='racing';
+        raceStartTime=performance.now();
+        startRace();
+        startCameraSystem();
+      },500);
     }
-    render();
-  },800);
+  }
+  tick();
 }
 
-function startRaceLoop(){
-  let lastTime=performance.now();
+/* ===== CAMERA SYSTEM ===== */
+function startCameraSystem(){
+  switchCamera('wide');
+  cameraTimer=setInterval(function(){
+    if(phase!=='racing')return;
+    var modes=['wide','leader','battle','dramatic'];
+    var r=Math.random();
+    var leader=getStandings()[0];
+    var leaderProg=leader?leader.progress:0;
+
+    if(leaderProg>80){
+      switchCamera('dramatic');
+    } else if(r<0.3){
+      switchCamera('leader');
+    } else if(r<0.55){
+      switchCamera('battle');
+    } else if(r<0.75){
+      switchCamera('dramatic');
+    } else {
+      switchCamera('wide');
+    }
+  },2500);
+}
+
+function switchCamera(mode){
+  cameraMode=mode;
+  var cam=qs('#hudCam');
+  if(!cam)return;
+  var labels={wide:'WIDE CAM',leader:'LEADER CAM',battle:'BATTLE CAM',dramatic:'CINEMATIC'};
+  cam.innerHTML='<span class="rec"></span>'+labels[mode];
+  doFlash();
+}
+
+function doFlash(){
+  var f=qs('#flash');
+  if(!f)return;
+  f.classList.add('on');
+  setTimeout(function(){f.classList.remove('on')},100);
+}
+
+function applyCamera(){
+  var w=qs('#trackWorld');
+  if(!w)return;
+  var sorted=getStandings();
+  if(!sorted.length)return;
+  var leader=sorted[0];
+  var vw=window.innerWidth;
+
+  if(cameraMode==='wide'){
+    w.style.transform='scale(1) translateX(0)';
+  } else if(cameraMode==='leader'){
+    var tx=-(leader.progress/100)*vw*0.5;
+    w.style.transform='scale(1.3) translateX('+tx+'px) translateY(5%)';
+  } else if(cameraMode==='battle'){
+    var mid=0;
+    var count=Math.min(sorted.length,3);
+    for(var i=0;i<count;i++)mid+=sorted[i].progress;
+    mid/=count;
+    var tx2=-(mid/100)*vw*0.4;
+    w.style.transform='scale(1.5) translateX('+tx2+'px) translateY(8%)';
+  } else if(cameraMode==='dramatic'){
+    var tx3=-(leader.progress/100)*vw*0.6;
+    w.style.transform='scale(1.8) translateX('+tx3+'px) translateY(12%)';
+  }
+}
+
+/* ===== COMMENTARY ===== */
+function showCommentary(text){
+  var c=qs('#commentary');
+  if(!c)return;
+  c.textContent=text;
+  c.className='commentary';
+  void c.offsetWidth;
+  c.className='commentary show';
+}
+
+/* ===== SPARKS ===== */
+function spawnSparks(x,y,color){
+  var cont=qs('#sparks');
+  if(!cont)return;
+  for(var i=0;i<8;i++){
+    var s=el('div','spark');
+    s.style.cssText='left:'+x+'px;top:'+y+'px;background:'+color+';--sx:'+(Math.random()*40-20)+'px;--sy:'+(Math.random()*40-20)+'px';
+    cont.appendChild(s);
+    (function(sp){setTimeout(function(){if(sp.parentNode)sp.parentNode.removeChild(sp)},600)})(s);
+  }
+}
+
+/* ===== STANDINGS ===== */
+function getStandings(){
+  return racers.slice().sort(function(a,b){
+    if(a.finished&&b.finished)return a.finishOrder-b.finishOrder;
+    if(a.finished)return -1;
+    if(b.finished)return 1;
+    return b.progress-a.progress;
+  });
+}
+
+function updateHUD(){
+  var box=qs('#hudStandings');
+  if(!box)return;
+  var sorted=getStandings();
+  var html='<div class="hud-standings-title">STANDINGS</div>';
+  for(var i=0;i<sorted.length;i++){
+    var r=sorted[i];
+    var pc=i===0?'p1':i===1?'p2':i===2?'p3':'';
+    html+='<div class="hud-row"><span class="hud-pos '+pc+'">P'+(i+1)+'</span><span class="hud-dot" style="background:'+r.color+'"></span><span class="hud-name">'+esc(r.name)+'</span></div>';
+  }
+  box.innerHTML=html;
+
+  // Progress bar
+  var bar=qs('#progBar');
+  if(bar){
+    var leaderProg=sorted.length?sorted[0].progress:0;
+    bar.style.width=leaderProg+'%';
+  }
+}
+
+/* ===== RACE LOOP ===== */
+function startRace(){
+  var lastTime=performance.now();
+  var dashOffset=0;
 
   function tick(now){
-    const dt=Math.min(now-lastTime,50);
+    if(phase!=='racing'){return}
+    var dt=Math.min(now-lastTime,50);
     lastTime=now;
 
-    let allDone=true;
-    racers.forEach(r=>{
-      if(r.finished)return;
+    var allDone=true;
+    for(var i=0;i<racers.length;i++){
+      var r=racers[i];
+      if(r.finished)continue;
       allDone=false;
 
-      const jitter=(Math.random()-.5)*.8;
-      const accel=r.speed+jitter;
-      const isWinner=r.id===winnerId;
-      let boost=0;
-      const p=r.progress;
+      var jitter=(Math.random()-0.5)*0.7;
+      var accel=r.speed+jitter;
+      var isW=r.id===winnerId;
+      var boost=0;
 
-      if(p>60){
-        if(isWinner){boost=.3+(p-60)*.015}
-        else{boost=-.05-(p-60)*.008}
-      }else if(p>30){
-        if(isWinner)boost=.1;
+      if(r.progress>75){
+        if(isW){boost=0.35+(r.progress-75)*0.02}
+        else{boost=-0.03-(r.progress-75)*0.01}
+      } else if(r.progress>40){
+        if(isW) boost=0.12;
+        else boost=(Math.random()-0.5)*0.05;
+      } else {
+        boost=(Math.random()-0.5)*0.1;
       }
 
-      const delta=(accel+boost)*(dt/16);
-      r.progress=Math.min(r.progress+Math.max(delta,.05),100);
-      r.speed+=((Math.random()-.5)*.02);
+      var delta=(accel+boost)*(dt/16);
+      r.progress=Math.min(r.progress+Math.max(delta,0.05),100);
+      r.speed+=(Math.random()-0.5)*0.015;
+      r.speed=Math.max(0.15,Math.min(0.6,r.speed));
 
       if(r.progress>=100&&!r.finished){
         r.finished=true;
-        r.finishOrder=++finishCount;
+        finishCount++;
+        r.finishOrder=finishCount;
       }
-    });
+    }
 
-    // Update track in-place for performance
-    updateTrackDOM();
+    // Check leader change for commentary
+    var sorted=getStandings();
+    if(sorted.length>0){
+      var newLeader=sorted[0].id;
+      if(lastLeaderId&&newLeader!==lastLeaderId&&sorted[0].progress>10&&sorted[0].progress<95){
+        overtakeCount++;
+        var leaderName=sorted[0].name.toUpperCase();
+        if(overtakeCount%2===0){
+          showCommentary(leaderName+' '+pick(COMMENTS_LEAD));
+        } else {
+          showCommentary(pick(COMMENTS_OVERTAKE));
+        }
+        spawnSparks(window.innerWidth/2,window.innerHeight/2,sorted[0].color);
+        var w=qs('#trackWorld');
+        if(w){w.classList.remove('shake');void w.offsetWidth;w.classList.add('shake')}
+      }
+      lastLeaderId=newLeader;
+
+      // Close battle commentary
+      if(sorted.length>=2&&Math.abs(sorted[0].progress-sorted[1].progress)<3&&sorted[0].progress>30&&sorted[0].progress<90){
+        if(Math.random()<0.008){
+          showCommentary(pick(COMMENTS_CLOSE));
+        }
+      }
+
+      // Final stretch
+      if(sorted[0].progress>85&&sorted[0].progress<88){
+        showCommentary(pick(COMMENTS_FINAL));
+      }
+    }
+
+    // Update DOM
+    updateRacerDOM();
+    updateHUD();
+    applyCamera();
+
+    // Animate track dashes
+    dashOffset-=dt*0.15;
+    for(var d=0;d<trackDashes.length;d++){
+      trackDashes[d].style.transform='translateX('+dashOffset+'px)';
+    }
+
+    // Speed lines visibility
+    for(var i=0;i<racers.length;i++){
+      var rEl=qs('#racer-'+racers[i].id);
+      if(rEl){
+        var sl=rEl.querySelector('.speed-lines');
+        if(sl) sl.style.opacity=racers[i].progress>5?'1':'0';
+      }
+    }
 
     if(allDone){
       phase='result';
-      render();
+      clearInterval(cameraTimer);
+      setTimeout(showResult,800);
       return;
     }
     animId=requestAnimationFrame(tick);
@@ -334,31 +594,67 @@ function startRaceLoop(){
   animId=requestAnimationFrame(tick);
 }
 
-function updateTrackDOM(){
-  const sorted=[...racers].sort((a,b)=>{
-    if(a.finished&&b.finished)return a.finishOrder-b.finishOrder;
-    if(a.finished)return-1;if(b.finished)return 1;
-    return b.progress-a.progress;
-  });
-  const getPos=r=>sorted.findIndex(x=>x.id===r.id)+1;
+function updateRacerDOM(){
+  for(var i=0;i<racers.length;i++){
+    var r=racers[i];
+    var rEl=qs('#racer-'+r.id);
+    if(!rEl)continue;
+    rEl.style.left='calc('+Math.min(r.progress,96)+'% - 30px)';
+    var emoji=rEl.querySelector('.car-emoji');
+    if(emoji) emoji.textContent=r.finished?'\u{1F3C1}':'\u{1F3CE}\uFE0F';
+  }
+}
 
-  const cars=document.querySelectorAll('.racer-car');
-  const badges=document.querySelectorAll('.position-badge');
-  const bodies=document.querySelectorAll('.car-body');
-  racers.forEach((r,i)=>{
-    if(cars[i])cars[i].style.left=`calc(${Math.min(r.progress,97)}% - 12px)`;
-    if(badges[i])badges[i].textContent=`P${getPos(r)}`;
-    if(bodies[i])bodies[i].textContent=r.finished?'\u{1F3C1}':'\u{1F3CE}\uFE0F';
-  });
+/* ===== RESULT ===== */
+function showResult(){
+  var scr=qs('#raceScr');
+  if(!scr)return;
+
+  // Confetti
+  var cb=el('div','confetti-box');
+  for(var i=0;i<60;i++){
+    var p=el('div','confetti-p');
+    var sz=6+Math.random()*10;
+    p.style.cssText='left:'+Math.random()*100+'%;width:'+sz+'px;height:'+sz+'px;background:'+CONFETTI_C[i%CONFETTI_C.length]+';border-radius:'+(Math.random()>0.5?'50%':'2px')+';animation-delay:'+Math.random()*2+'s;animation-duration:'+(2+Math.random()*2)+'s';
+    cb.appendChild(p);
+  }
+  scr.appendChild(cb);
+
+  var standings=getStandings();
+  var w=standings[0];
+  var medals=['\u{1F947}','\u{1F948}','\u{1F949}'];
+  var pcls=['gold','silver','bronze'];
+
+  var ov=el('div','result-overlay');
+  ov.onclick=function(e){if(e.target===ov)resetAll()};
+  var card=el('div','result-card');
+  var h='<div class="r-trophy">\u{1F3C6}</div>';
+  h+='<div class="r-label">WINNER</div>';
+  h+='<div class="r-winner">'+esc(w.name)+'</div>';
+  h+='<div class="r-standings"><div class="r-standings-title">Final Standings</div>';
+  for(var i=0;i<standings.length;i++){
+    var r=standings[i];
+    h+='<div class="r-row"><span class="r-pos '+(pcls[i]||'')+'">'+(medals[i]||(i+1))+'</span><span class="r-dot" style="background:'+r.color+'"></span><span class="r-name">'+esc(r.name)+'</span></div>';
+  }
+  h+='</div>';
+  card.innerHTML=h;
+  var btn=el('button','r-btn','Race Again');
+  btn.onclick=resetAll;
+  card.appendChild(btn);
+  ov.appendChild(card);
+  scr.appendChild(ov);
 }
 
 function resetAll(){
   cancelAnimationFrame(animId);
-  clearInterval(countdownTimer);
+  clearInterval(cameraTimer);
+  clearTimeout(commentTimer);
   phase='setup';
   racers=[];
   winnerId=null;
   finishCount=0;
+  lastLeaderId=null;
+  overtakeCount=0;
   render();
 }
 
