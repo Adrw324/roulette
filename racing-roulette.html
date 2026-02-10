@@ -310,30 +310,233 @@ function buildScene(){
     }
   }
 
-  // Grandstands at corners
-  var standPositions=[0.05,0.2,0.4,0.6,0.8];
-  for(var si=0;si<standPositions.length;si++){
-    var st=standPositions[si];
-    var sp=circuit.getPointAt(st);
-    var stan=circuit.getTangentAt(st);
-    var sright=new V().crossVectors(stan,new V(0,1,0)).normalize();
-    var soff=sright.clone().multiplyScalar((si%2===0?1:-1)*(TRACK_W/2+10));
-    var stand=new THREE.Mesh(new THREE.BoxGeometry(18,5,6),new THREE.MeshPhongMaterial({color:0x1a1a2e}));
-    stand.position.set(sp.x+soff.x,2.5,sp.z+soff.z);
-    stand.rotation.y=Math.atan2(-stan.z,stan.x);
-    stand.castShadow=true;scene.add(stand);
+  // Crowd texture generator
+  function makeCrowdTex(w,h){
+    var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    var cx=cv.getContext('2d');
+    cx.fillStyle='#1a1a2e';cx.fillRect(0,0,w,h);
+    var crowdColors=['#e10600','#ff8700','#0090ff','#fff','#ffcc00','#00d2be','#ff69b4','#52e252','#ddd','#aaa','#8888ff','#ff5599'];
+    for(var y=0;y<h;y+=3){for(var x=0;x<w;x+=2){
+      if(Math.random()>0.15){cx.fillStyle=crowdColors[Math.floor(Math.random()*crowdColors.length)];cx.fillRect(x,y,1.5,2.5)}
+    }}
+    var t=new THREE.CanvasTexture(cv);t.minFilter=THREE.LinearFilter;return t;
   }
 
-  // Stars
-  var starP=new Float32Array(800*3);
-  for(var si2=0;si2<800;si2++){
+  // Grandstands with crowd (10 stands around the circuit)
+  var standData=[
+    {t:0.02,side:1,len:22,h:6},{t:0.08,side:-1,len:16,h:5},
+    {t:0.18,side:1,len:20,h:7},{t:0.28,side:-1,len:14,h:5},
+    {t:0.38,side:1,len:24,h:8},{t:0.48,side:-1,len:18,h:6},
+    {t:0.58,side:1,len:16,h:5},{t:0.68,side:-1,len:22,h:7},
+    {t:0.78,side:1,len:20,h:6},{t:0.88,side:-1,len:18,h:6}
+  ];
+  for(var si=0;si<standData.length;si++){
+    var sd=standData[si];
+    var sp=circuit.getPointAt(sd.t);
+    var stan=circuit.getTangentAt(sd.t);
+    var sright=new V().crossVectors(stan,new V(0,1,0)).normalize();
+    var soff=sright.clone().multiplyScalar(sd.side*(TRACK_W/2+10));
+    var sAng=Math.atan2(-stan.z,stan.x);
+    // Stand structure (tiered)
+    var sMat=new THREE.MeshPhongMaterial({color:0x1a1a2e});
+    var stand=new THREE.Mesh(new THREE.BoxGeometry(sd.len,sd.h,7),sMat);
+    stand.position.set(sp.x+soff.x,sd.h/2,sp.z+soff.z);
+    stand.rotation.y=sAng;stand.castShadow=true;scene.add(stand);
+    // Crowd face (front)
+    var cTex=makeCrowdTex(128,64);
+    var crowdFace=new THREE.Mesh(new THREE.PlaneGeometry(sd.len-0.5,sd.h-0.5),new THREE.MeshBasicMaterial({map:cTex}));
+    var fwd=sright.clone().multiplyScalar(-sd.side*3.5);
+    crowdFace.position.set(sp.x+soff.x+fwd.x,sd.h/2,sp.z+soff.z+fwd.z);
+    crowdFace.rotation.y=sAng+(sd.side===1?Math.PI:0);
+    scene.add(crowdFace);
+    // Roof overhang
+    var roof=new THREE.Mesh(new THREE.BoxGeometry(sd.len+2,0.3,8),new THREE.MeshPhongMaterial({color:0x222244}));
+    roof.position.set(sp.x+soff.x,sd.h+0.15,sp.z+soff.z);
+    roof.rotation.y=sAng;scene.add(roof);
+    // Stand lighting
+    var standLight=new THREE.PointLight(0xffeedd,0.3,25);
+    standLight.position.set(sp.x+soff.x+fwd.x*0.5,sd.h+1,sp.z+soff.z+fwd.z*0.5);
+    scene.add(standLight);
+  }
+
+  // Advertising boards along outside barriers
+  var adColors=[0xe10600,0x0090ff,0xffcc00,0x00d2be,0xff8700,0x52e252,0xff69b4,0x6644ff];
+  function makeAdTex(color,text){
+    var cv=document.createElement('canvas');cv.width=256;cv.height=32;
+    var cx=cv.getContext('2d');
+    cx.fillStyle=color;cx.fillRect(0,0,256,32);
+    cx.fillStyle='#fff';cx.font='bold 18px sans-serif';cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillText(text,128,16);
+    return new THREE.CanvasTexture(cv);
+  }
+  var adTexts=['RACING ROULETTE','SPEED','TURBO','NITRO','APEX','VELOCITY','GRAND PRIX','POLE POSITION'];
+  for(var ai=0;ai<40;ai++){
+    var at=ai/40;
+    var ap=circuit.getPointAt(at);
+    var atan2=circuit.getTangentAt(at);
+    var aright=new V().crossVectors(atan2,new V(0,1,0)).normalize();
+    var aside=(ai%3===0)?-1:1;
+    var aoff=aright.clone().multiplyScalar(aside*(TRACK_W/2+1.8));
+    var adTex=makeAdTex(['#e10600','#0090ff','#ffcc00','#00d2be','#ff8700','#52e252'][ai%6],adTexts[ai%adTexts.length]);
+    var adBoard=new THREE.Mesh(new THREE.PlaneGeometry(3.5,0.8),new THREE.MeshBasicMaterial({map:adTex}));
+    adBoard.position.set(ap.x+aoff.x,1.5,ap.z+aoff.z);
+    adBoard.rotation.y=Math.atan2(-atan2.z,atan2.x)+(aside===1?Math.PI/2:-Math.PI/2);
+    scene.add(adBoard);
+  }
+
+  // Pit lane buildings (along start/finish straight)
+  var pitStart=circuit.getPointAt(0.95);
+  var pitEnd=circuit.getPointAt(0.03);
+  var pitTan=circuit.getTangentAt(0.99);
+  var pitRight=new V().crossVectors(pitTan,new V(0,1,0)).normalize();
+  var pitOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+16));
+  // Main pit building
+  var pitBld=new THREE.Mesh(new THREE.BoxGeometry(40,4,8),new THREE.MeshPhongMaterial({color:0x1a1a3a}));
+  pitBld.position.set((pitStart.x+pitEnd.x)/2+pitOff.x,2,(pitStart.z+pitEnd.z)/2+pitOff.z);
+  pitBld.rotation.y=Math.atan2(-pitTan.z,pitTan.x);pitBld.castShadow=true;scene.add(pitBld);
+  // Pit wall
+  var pitWall=new THREE.Mesh(new THREE.BoxGeometry(40,1.2,0.3),new THREE.MeshPhongMaterial({color:0x444466}));
+  var pitWallOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+8));
+  pitWall.position.set((pitStart.x+pitEnd.x)/2+pitWallOff.x,0.6,(pitStart.z+pitEnd.z)/2+pitWallOff.z);
+  pitWall.rotation.y=Math.atan2(-pitTan.z,pitTan.x);scene.add(pitWall);
+  // Pit gantry screens (info boards above pit)
+  for(var pi=0;pi<3;pi++){
+    var scrn=new THREE.Mesh(new THREE.BoxGeometry(6,2,0.2),new THREE.MeshBasicMaterial({color:0x112244}));
+    var pOff2=pitRight.clone().multiplyScalar(-(TRACK_W/2+10));
+    var ptp=circuit.getPointAt(0.97+pi*0.02);
+    scrn.position.set(ptp.x+pOff2.x,5,ptp.z+pOff2.z);
+    scrn.rotation.y=Math.atan2(-pitTan.z,pitTan.x);scene.add(scrn);
+    // Screen glow
+    var sg=new THREE.PointLight(0x2244aa,0.4,8);sg.position.copy(scrn.position);sg.position.y+=0.5;scene.add(sg);
+  }
+
+  // Marshal posts with flags
+  var marshalT=[0.12,0.25,0.37,0.5,0.62,0.75,0.87];
+  var flagColors=[0x00ff00,0xffcc00,0x00ff00,0x0000ff,0x00ff00,0xffcc00,0x00ff00];
+  for(var mi=0;mi<marshalT.length;mi++){
+    var mp=circuit.getPointAt(marshalT[mi]);
+    var mtan=circuit.getTangentAt(marshalT[mi]);
+    var mright=new V().crossVectors(mtan,new V(0,1,0)).normalize();
+    var moff=mright.clone().multiplyScalar((mi%2===0?1:-1)*(TRACK_W/2+4));
+    // Post
+    var mPole=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,3,6),new THREE.MeshPhongMaterial({color:0x888888}));
+    mPole.position.set(mp.x+moff.x,1.5,mp.z+moff.z);scene.add(mPole);
+    // Flag
+    var flag=new THREE.Mesh(new THREE.PlaneGeometry(0.6,0.4),new THREE.MeshBasicMaterial({color:flagColors[mi],side:THREE.DoubleSide}));
+    flag.position.set(mp.x+moff.x+0.35,2.8,mp.z+moff.z);
+    flag.rotation.y=Math.atan2(-mtan.z,mtan.x);scene.add(flag);
+    // Marshal light
+    var mLight=new THREE.PointLight(flagColors[mi],0.3,8);
+    mLight.position.set(mp.x+moff.x,3.2,mp.z+moff.z);scene.add(mLight);
+  }
+
+  // Trees/vegetation outside track
+  var treeMat=new THREE.MeshPhongMaterial({color:0x0a3a0a});
+  var trunkMat=new THREE.MeshPhongMaterial({color:0x3a2a1a});
+  for(var ti=0;ti<50;ti++){
+    var tt=Math.random();
+    var tp=circuit.getPointAt(tt);
+    var ttan=circuit.getTangentAt(tt);
+    var tright=new V().crossVectors(ttan,new V(0,1,0)).normalize();
+    var tDist=TRACK_W/2+20+Math.random()*30;
+    var tSide=Math.random()>0.5?1:-1;
+    var tOff=tright.clone().multiplyScalar(tSide*tDist);
+    var tx=tp.x+tOff.x+(Math.random()-0.5)*8;
+    var tz=tp.z+tOff.z+(Math.random()-0.5)*8;
+    // Trunk
+    var tH=2+Math.random()*3;
+    var trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.2,tH,6),trunkMat);
+    trunk.position.set(tx,tH/2,tz);scene.add(trunk);
+    // Canopy
+    var cR=1.2+Math.random()*1.5;
+    var canopy=new THREE.Mesh(new THREE.SphereGeometry(cR,6,5),treeMat);
+    canopy.position.set(tx,tH+cR*0.5,tz);canopy.castShadow=true;scene.add(canopy);
+  }
+
+  // Run-off gravel at corners
+  var gravelMat=new THREE.MeshPhongMaterial({color:0x554433});
+  var cornerTs=[0.12,0.28,0.42,0.55,0.7,0.85];
+  for(var gi=0;gi<cornerTs.length;gi++){
+    var gp=circuit.getPointAt(cornerTs[gi]);
+    var gtan=circuit.getTangentAt(cornerTs[gi]);
+    var gright=new V().crossVectors(gtan,new V(0,1,0)).normalize();
+    for(var gs=-1;gs<=1;gs+=2){
+      var goff=gright.clone().multiplyScalar(gs*(TRACK_W/2+4));
+      var gravel=new THREE.Mesh(new THREE.PlaneGeometry(10,6),gravelMat);
+      gravel.rotation.x=-Math.PI/2;gravel.position.set(gp.x+goff.x,0.01,gp.z+goff.z);
+      gravel.rotation.z=-Math.atan2(-gtan.z,gtan.x);scene.add(gravel);
+    }
+  }
+
+  // Camera crane structures at key points
+  var craneMat=new THREE.MeshPhongMaterial({color:0x666666});
+  var craneTs=[0.1,0.35,0.65,0.9];
+  for(var cri=0;cri<craneTs.length;cri++){
+    var crp=circuit.getPointAt(craneTs[cri]);
+    var crtan=circuit.getTangentAt(craneTs[cri]);
+    var crright=new V().crossVectors(crtan,new V(0,1,0)).normalize();
+    var crOff=crright.clone().multiplyScalar((cri%2===0?1:-1)*(TRACK_W/2+6));
+    // Vertical pole
+    var crPole=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,12,6),craneMat);
+    crPole.position.set(crp.x+crOff.x,6,crp.z+crOff.z);scene.add(crPole);
+    // Arm
+    var crArm=new THREE.Mesh(new THREE.BoxGeometry(4,0.15,0.15),craneMat);
+    crArm.position.set(crp.x+crOff.x,12,crp.z+crOff.z);
+    crArm.rotation.y=Math.atan2(-crtan.z,crtan.x);scene.add(crArm);
+    // Camera box at end of arm
+    var camBox=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.4,0.4),new THREE.MeshPhongMaterial({color:0x222222}));
+    var armTip=new V().copy(crtan).multiplyScalar(-2*(cri%2===0?1:-1));
+    camBox.position.set(crp.x+crOff.x+armTip.x,11.8,crp.z+crOff.z+armTip.z);scene.add(camBox);
+    // Red light on camera
+    var redLight=new THREE.Mesh(new THREE.SphereGeometry(0.08,4,4),new THREE.MeshBasicMaterial({color:0xff0000}));
+    redLight.position.copy(camBox.position);redLight.position.y-=0.2;scene.add(redLight);
+  }
+
+  // Colored spot lights at track corners (dramatic lighting)
+  var spotColors=[0xe10600,0x0090ff,0xff8700,0x00d2be,0xffcc00,0xff69b4];
+  var spotTs=[0.1,0.25,0.4,0.55,0.7,0.85];
+  for(var spi=0;spi<spotTs.length;spi++){
+    var spp=circuit.getPointAt(spotTs[spi]);
+    var sLight=new THREE.PointLight(spotColors[spi],0.35,30);
+    sLight.position.set(spp.x,12,spp.z);scene.add(sLight);
+  }
+
+  // Start lights gantry (5 red light panels)
+  var slp=circuit.getPointAt(0.99);
+  var sltan=circuit.getTangentAt(0.99);
+  var slright=new V().crossVectors(sltan,new V(0,1,0)).normalize();
+  for(var sli=0;sli<5;sli++){
+    var slOff=slright.clone().multiplyScalar((sli-2)*2.5);
+    var slPanel=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.8,0.2),new THREE.MeshPhongMaterial({color:0x111111}));
+    slPanel.position.set(slp.x+slOff.x,9,slp.z+slOff.z);
+    slPanel.rotation.y=Math.atan2(-sltan.z,sltan.x);scene.add(slPanel);
+    // Red bulbs
+    for(var slb=-1;slb<=1;slb+=2){
+      var bulbM=new THREE.Mesh(new THREE.SphereGeometry(0.15,6,6),new THREE.MeshBasicMaterial({color:0xff0000}));
+      bulbM.position.set(slp.x+slOff.x,9+slb*0.2,slp.z+slOff.z);scene.add(bulbM);
+    }
+  }
+
+  // Stars (more of them)
+  var starP=new Float32Array(1200*3);
+  for(var si2=0;si2<1200;si2++){
     starP[si2*3]=(Math.random()-0.5)*500;
-    starP[si2*3+1]=50+Math.random()*150;
+    starP[si2*3+1]=50+Math.random()*200;
     starP[si2*3+2]=(Math.random()-0.5)*500;
   }
   var starG=new THREE.BufferGeometry();
   starG.setAttribute('position',new THREE.BufferAttribute(starP,3));
   scene.add(new THREE.Points(starG,new THREE.PointsMaterial({color:0xffffff,size:0.4})));
+  // Dim stars layer
+  var starP2=new Float32Array(600*3);
+  for(var si3=0;si3<600;si3++){
+    starP2[si3*3]=(Math.random()-0.5)*400;
+    starP2[si3*3+1]=80+Math.random()*120;
+    starP2[si3*3+2]=(Math.random()-0.5)*400;
+  }
+  var starG2=new THREE.BufferGeometry();
+  starG2.setAttribute('position',new THREE.BufferAttribute(starP2,3));
+  scene.add(new THREE.Points(starG2,new THREE.PointsMaterial({color:0x8888ff,size:0.25,transparent:true,opacity:0.5})));
 
   // Cars on circuit
   for(var ci=0;ci<racers.length;ci++){
@@ -497,7 +700,7 @@ function startRecording(){
   qs('#recDot').style.display='flex';
 }
 
-function stopRecording(winnerName){
+function stopRecording(){
   if(!mediaRecorder||mediaRecorder.state==='inactive'){qs('#recDot').style.display='none';return}
   mediaRecorder.onstop=function(){
     if(recordedChunks.length===0){qs('#recDot').style.display='none';return}
@@ -506,8 +709,8 @@ function stopRecording(winnerName){
     var blob=new Blob(recordedChunks,{type:mime});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');a.href=url;
-    var safeName=(winnerName||'race').replace(/[^a-zA-Z0-9\uAC00-\uD7AF]/g,'_');
-    a.download='race_'+safeName+'.'+ext;
+    var d=new Date();var ts=d.getFullYear()+''+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+(d.getDate()<10?'0':'')+d.getDate()+'_'+(d.getHours()<10?'0':'')+d.getHours()+(d.getMinutes()<10?'0':'')+d.getMinutes();
+    a.download='racing_roulette_'+ts+'.'+ext;
     document.body.appendChild(a);a.click();
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},200);
     qs('#recDot').style.display='none';
@@ -658,7 +861,7 @@ function beginCountdown(){
 function showResult(){
   var standings=getStandings();var w=standings[0];
   if(recordEnabled&&mediaRecorder&&mediaRecorder.state!=='inactive'){
-    setTimeout(function(){stopRecording(w?w.name:'winner')},800);
+    setTimeout(function(){stopRecording()},800);
   }
   var cb=document.createElement('div');cb.className='confetti-box';
   for(var i=0;i<60;i++){var p=document.createElement('div');p.className='conf';var sz=6+Math.random()*10;
