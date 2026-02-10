@@ -76,6 +76,17 @@ input{font-family:inherit;outline:none;border:none}
 @keyframes cfl{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
 #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:35;transition:opacity .15s}
 
+.s-rec{display:flex;align-items:center;gap:.8rem;margin-bottom:1.5rem;padding:.7rem 1rem;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:10px;max-width:460px;width:100%}
+.s-rec-info{flex:1}
+.s-rec-label{font-size:.88rem;color:#ccc;font-weight:600}
+.s-rec-sub{font-size:.68rem;color:#666;margin-top:.1rem}
+.s-toggle{position:relative;width:44px;height:24px;background:#333;border-radius:12px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.s-toggle.on{background:#e10600}
+.s-toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:left .2s}
+.s-toggle.on::after{left:22px}
+#recDot{position:fixed;top:.8rem;right:.8rem;display:none;align-items:center;gap:.4rem;padding:.35rem .7rem;background:rgba(225,6,0,.9);border-radius:8px;font-size:.7rem;font-weight:700;z-index:25;letter-spacing:.05em}
+#recDot .rd-blink{width:8px;height:8px;border-radius:50%;background:#fff;animation:bk 1s infinite}
+
 @media(max-width:600px){
   .s-title{font-size:1.7rem}#commentary{font-size:1.8rem}.cd-n{font-size:8rem}.cd-g{font-size:5rem}
   .h-board{min-width:110px;padding:.4rem .6rem}.h-row{font-size:.65rem}.r-card{padding:1.5rem}.r-w{font-size:1.5rem}
@@ -91,6 +102,7 @@ input{font-family:inherit;outline:none;border:none}
 <div id="cdOverlay"></div>
 <div id="resultOverlay"></div>
 <div id="flash"></div>
+<div id="recDot"><span class="rd-blink"></span>REC</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* ============ CONFIG ============ */
@@ -127,6 +139,7 @@ var scene,camera,renderer,circuit;
 var carMeshes={};
 var camPos,camTarget,camGoalPos,camGoalTarget,camGoalFov;
 var currentFov=60,camLerp=0.03,camTLerp=0.04;
+var recordEnabled=false,mediaRecorder=null,recordedChunks=[];
 
 function qs(s){return document.querySelector(s)}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
@@ -139,7 +152,7 @@ function initThree(){
   scene.background=new THREE.Color(0x020210);
   scene.fog=new THREE.FogExp2(0x020210,0.004);
   camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,600);
-  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
   renderer.setSize(window.innerWidth,window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
   renderer.shadowMap.enabled=true;
@@ -468,6 +481,41 @@ function updateCamera(time){
   camera.fov=currentFov;camera.updateProjectionMatrix();
 }
 
+/* ============ RECORDING ============ */
+function startRecording(){
+  recordedChunks=[];
+  var canvas=renderer.domElement;
+  if(typeof canvas.captureStream!=='function'||typeof MediaRecorder==='undefined')return;
+  var stream=canvas.captureStream(30);
+  var mimeType='';
+  var types=['video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  for(var i=0;i<types.length;i++){if(MediaRecorder.isTypeSupported(types[i])){mimeType=types[i];break}}
+  if(!mimeType)return;
+  mediaRecorder=new MediaRecorder(stream,{mimeType:mimeType,videoBitsPerSecond:6000000});
+  mediaRecorder.ondataavailable=function(e){if(e.data&&e.data.size>0)recordedChunks.push(e.data)};
+  mediaRecorder.start(200);
+  qs('#recDot').style.display='flex';
+}
+
+function stopRecording(winnerName){
+  if(!mediaRecorder||mediaRecorder.state==='inactive'){qs('#recDot').style.display='none';return}
+  mediaRecorder.onstop=function(){
+    if(recordedChunks.length===0){qs('#recDot').style.display='none';return}
+    var mime=mediaRecorder.mimeType||'video/webm';
+    var ext=mime.indexOf('mp4')!==-1?'mp4':'webm';
+    var blob=new Blob(recordedChunks,{type:mime});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;
+    var safeName=(winnerName||'race').replace(/[^a-zA-Z0-9\uAC00-\uD7AF]/g,'_');
+    a.download='race_'+safeName+'.'+ext;
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},200);
+    qs('#recDot').style.display='none';
+    mediaRecorder=null;recordedChunks=[];
+  };
+  mediaRecorder.stop();
+}
+
 function doFlash(){var f=qs('#flash');f.style.opacity='0.18';f.style.transition='opacity 0s';setTimeout(function(){f.style.transition='opacity .2s';f.style.opacity='0'},50)}
 function showComment(t){var c=qs('#commentary');c.textContent=t;c.className='';void c.offsetWidth;c.className='show'}
 
@@ -571,6 +619,13 @@ function renderSetup(){
     })(options[i],i);
   }
   s.appendChild(chips);
+  var recRow=document.createElement('div');recRow.className='s-rec';
+  var recToggle=document.createElement('div');recToggle.className='s-toggle'+(recordEnabled?' on':'');
+  recToggle.onclick=function(){recordEnabled=!recordEnabled;recToggle.className='s-toggle'+(recordEnabled?' on':'')};
+  var recInfo=document.createElement('div');recInfo.className='s-rec-info';
+  recInfo.innerHTML='<div class="s-rec-label">Record Race</div><div class="s-rec-sub">Auto-download video when race ends</div>';
+  recRow.appendChild(recToggle);recRow.appendChild(recInfo);
+  s.appendChild(recRow);
   var btn=document.createElement('button');btn.className='s-go';
   if(options.length<2){btn.disabled=true;btn.textContent='Add '+(2-options.length)+' more option'+(options.length===0?'s':'');}
   else btn.textContent='START RACE';
@@ -585,6 +640,7 @@ function beginCountdown(){
   qs('#setupScreen').style.display='none';
   buildScene();renderer.render(scene,camera);
   qs('#hud').style.display='block';qs('#progWrap').style.display='block';updateHUD();
+  if(recordEnabled)startRecording();
   // Pre-race camera: aerial view of circuit
   camPos.set(0,90,60);camTarget.set(0,0,-10);
   camGoalPos.copy(camPos);camGoalTarget.copy(camTarget);
@@ -600,11 +656,14 @@ function beginCountdown(){
 }
 
 function showResult(){
+  var standings=getStandings();var w=standings[0];
+  if(recordEnabled&&mediaRecorder&&mediaRecorder.state!=='inactive'){
+    setTimeout(function(){stopRecording(w?w.name:'winner')},800);
+  }
   var cb=document.createElement('div');cb.className='confetti-box';
   for(var i=0;i<60;i++){var p=document.createElement('div');p.className='conf';var sz=6+Math.random()*10;
     p.style.cssText='left:'+Math.random()*100+'%;width:'+sz+'px;height:'+sz+'px;background:'+CONF_C[i%CONF_C.length]+';border-radius:'+(Math.random()>0.5?'50%':'2px')+';animation-delay:'+Math.random()*2+'s;animation-duration:'+(2+Math.random()*2)+'s';
     cb.appendChild(p)}document.body.appendChild(cb);
-  var standings=getStandings();var w=standings[0];
   var medals=['\u{1F947}','\u{1F948}','\u{1F949}'];var pcls=['gd','sv','bz'];
   var ov=qs('#resultOverlay');ov.style.display='flex';
   var h='<div class="r-card"><div class="r-t">\u{1F3C6}</div><div class="r-l">WINNER</div><div class="r-w">'+esc(w.name)+'</div><div class="r-list"><div class="r-lt">Final Standings</div>';
@@ -616,6 +675,8 @@ function showResult(){
 
 function resetAll(){
   cancelAnimationFrame(animId);clearInterval(camTimer);
+  if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();mediaRecorder=null;recordedChunks=[]}
+  qs('#recDot').style.display='none';
   phase='setup';racers=[];winnerId=null;finishCount=0;
   qs('#hud').style.display='none';qs('#progWrap').style.display='none';
   qs('#resultOverlay').style.display='none';qs('#resultOverlay').innerHTML='';
