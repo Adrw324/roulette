@@ -407,7 +407,7 @@ function buildScene(){
   for(var pi=0;pi<3;pi++){
     var scrn=new THREE.Mesh(new THREE.BoxGeometry(6,2,0.2),new THREE.MeshBasicMaterial({color:0x112244}));
     var pOff2=pitRight.clone().multiplyScalar(-(TRACK_W/2+10));
-    var ptp=circuit.getPointAt(0.97+pi*0.02);
+    var ptp=circuit.getPointAt(0.96+pi*0.015);
     scrn.position.set(ptp.x+pOff2.x,5,ptp.z+pOff2.z);
     scrn.rotation.y=Math.atan2(-pitTan.z,pitTan.x);scene.add(scrn);
   }
