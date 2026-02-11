@@ -601,7 +601,8 @@ function createCar(color){
   var glMesh=new THREE.Mesh(new THREE.PlaneGeometry(3,0.8),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.4}));
   glMesh.rotation.x=-Math.PI/2;glMesh.position.y=0.05;g.add(glMesh);
   // Tail light
-  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.08,0.12,0.6),new THREE.MeshBasicMaterial({color:0xff0000})),{position:new V(-1.95,0.5,0)}));
+  var tl=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.12,0.6),new THREE.MeshBasicMaterial({color:0xff0000}));
+  tl.position.set(-1.95,0.5,0);g.add(tl);
   return g;
 }
 
