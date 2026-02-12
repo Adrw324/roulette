@@ -144,7 +144,7 @@ var scene,camera,renderer,circuit;
 var carMeshes={};
 var camPos,camTarget,camGoalPos,camGoalTarget,camGoalFov;
 var currentFov=60,camLerp=0.03,camTLerp=0.04;
-var recordEnabled=false,mediaRecorder=null,recordedChunks=[],recordStopQueued=false;
+var recordEnabled=false,mediaRecorder=null,recordedChunks=[],recordStopQueued=false,recCanvas=null,recCtx=null;
 
 function qs(s){return document.querySelector(s)}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
@@ -154,8 +154,8 @@ function hx(h){return parseInt(h.replace('#',''),16)}
 /* ============ THREE.JS ============ */
 function initThree(){
   scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x78b8e0);
-  scene.fog=new THREE.FogExp2(0x78b8e0,0.003);
+  scene.background=new THREE.Color(0xcce8f4);
+  scene.fog=new THREE.FogExp2(0xcce8f4,0.003);
   camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,600);
   renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
   renderer.setSize(window.innerWidth,window.innerHeight);
@@ -215,8 +215,32 @@ function buildScene(){
   dir.shadow.camera.top=70;dir.shadow.camera.bottom=-70;
   scene.add(dir);
 
-  // Ground
-  var ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshPhongMaterial({color:0x3a8a3a}));
+  // Sky gradient dome
+  var skyCV=document.createElement('canvas');skyCV.width=1;skyCV.height=256;
+  var skyCx=skyCV.getContext('2d');
+  var skyGrad=skyCx.createLinearGradient(0,0,0,256);
+  skyGrad.addColorStop(0,'#1a5599');skyGrad.addColorStop(0.3,'#4488bb');
+  skyGrad.addColorStop(0.6,'#88ccee');skyGrad.addColorStop(1,'#cce8f4');
+  skyCx.fillStyle=skyGrad;skyCx.fillRect(0,0,1,256);
+  var skyTex=new THREE.CanvasTexture(skyCV);
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(280,16,16),new THREE.MeshBasicMaterial({map:skyTex,side:THREE.BackSide,fog:false})));
+
+  // Distant hills
+  var hillMat=new THREE.MeshPhongMaterial({color:0x2a7a2a});
+  for(var hi=0;hi<12;hi++){
+    var hAngle=hi/12*Math.PI*2;var hDist=170+Math.random()*40;
+    var hill=new THREE.Mesh(new THREE.SphereGeometry(25+Math.random()*25,8,6),hillMat);
+    hill.position.set(Math.cos(hAngle)*hDist,-8,Math.sin(hAngle)*hDist);
+    hill.scale.y=0.25+Math.random()*0.15;scene.add(hill);
+  }
+
+  // Ground with grass texture
+  var grassCV=document.createElement('canvas');grassCV.width=64;grassCV.height=64;
+  var gCx=grassCV.getContext('2d');gCx.fillStyle='#3a8a3a';gCx.fillRect(0,0,64,64);
+  var grassShades=['#2d7a2d','#459a45','#358535','#4a9a4a','#2f852f','#3d903d'];
+  for(var gri=0;gri<300;gri++){gCx.fillStyle=grassShades[Math.floor(Math.random()*grassShades.length)];gCx.fillRect(Math.random()*64,Math.random()*64,1+Math.random()*2,1+Math.random()*2)}
+  var grassTex=new THREE.CanvasTexture(grassCV);grassTex.wrapS=grassTex.wrapT=THREE.RepeatWrapping;grassTex.repeat.set(80,80);
+  var ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshPhongMaterial({map:grassTex}));
   ground.rotation.x=-Math.PI/2;ground.position.y=-0.1;ground.receiveShadow=true;
   scene.add(ground);
 
@@ -738,26 +762,33 @@ function updateCamera(time){
   camera.fov=currentFov;camera.updateProjectionMatrix();
 }
 
-/* ============ RECORDING ============ */
+/* ============ RECORDING (composite canvas with UI) ============ */
 function startRecording(){
   recordedChunks=[];
-  var canvas=renderer.domElement;
-  if(typeof canvas.captureStream!=='function'||typeof MediaRecorder==='undefined')return;
-  var stream=canvas.captureStream(30);
+  if(typeof MediaRecorder==='undefined')return;
+  var src=renderer.domElement;
+  var maxW=1280,maxH=720;
+  var aspect=src.width/src.height;
+  var rw,rh;
+  if(aspect>maxW/maxH){rw=maxW;rh=Math.round(maxW/aspect)}
+  else{rh=maxH;rw=Math.round(maxH*aspect)}
+  recCanvas=document.createElement('canvas');recCanvas.width=rw;recCanvas.height=rh;
+  recCtx=recCanvas.getContext('2d');
+  var stream=recCanvas.captureStream(30);
   var mimeType='';
   var types=['video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
   for(var i=0;i<types.length;i++){if(MediaRecorder.isTypeSupported(types[i])){mimeType=types[i];break}}
-  if(!mimeType)return;
-  mediaRecorder=new MediaRecorder(stream,{mimeType:mimeType,videoBitsPerSecond:6000000});
+  if(!mimeType){recCanvas=null;recCtx=null;return}
+  mediaRecorder=new MediaRecorder(stream,{mimeType:mimeType,videoBitsPerSecond:3000000});
   mediaRecorder.ondataavailable=function(e){if(e.data&&e.data.size>0)recordedChunks.push(e.data)};
   mediaRecorder.start(200);
   qs('#recDot').style.display='flex';
 }
 
 function stopRecording(){
-  if(!mediaRecorder||mediaRecorder.state==='inactive'){qs('#recDot').style.display='none';return}
+  if(!mediaRecorder||mediaRecorder.state==='inactive'){qs('#recDot').style.display='none';recCanvas=null;recCtx=null;return}
   mediaRecorder.onstop=function(){
-    if(recordedChunks.length===0){qs('#recDot').style.display='none';return}
+    if(recordedChunks.length===0){qs('#recDot').style.display='none';recCanvas=null;recCtx=null;return}
     var mime=mediaRecorder.mimeType||'video/webm';
     var ext=mime.indexOf('mp4')!==-1?'mp4':'webm';
     var blob=new Blob(recordedChunks,{type:mime});
@@ -768,9 +799,59 @@ function stopRecording(){
     document.body.appendChild(a);a.click();
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},200);
     qs('#recDot').style.display='none';
-    mediaRecorder=null;recordedChunks=[];
+    mediaRecorder=null;recordedChunks=[];recCanvas=null;recCtx=null;
   };
   mediaRecorder.stop();
+}
+
+function updateRecCanvas(){
+  if(!recCtx||!mediaRecorder||mediaRecorder.state==='inactive')return;
+  recCtx.drawImage(renderer.domElement,0,0,recCanvas.width,recCanvas.height);
+  drawRecUI(recCtx,recCanvas.width,recCanvas.height);
+}
+
+function drawRecUI(ctx,w,h){
+  if(phase!=='racing'&&phase!=='result')return;
+  var sorted=getStandings();if(!sorted.length)return;
+  var s=w/1280;
+  // Standings panel
+  var px=10*s,py=10*s,pw=155*s;
+  var rh2=19*s,hh=22*s;
+  var ph=hh+sorted.length*rh2+6*s;
+  ctx.fillStyle='rgba(0,0,0,0.72)';
+  ctx.fillRect(px,py,pw,ph);
+  ctx.fillStyle='#555';ctx.font='bold '+Math.round(8*s)+'px sans-serif';ctx.textAlign='left';
+  ctx.fillText('STANDINGS',px+8*s,py+15*s);
+  for(var i=0;i<sorted.length;i++){
+    var r=sorted[i];var y=py+hh+i*rh2;
+    ctx.fillStyle=i===0?'#ffd700':i===1?'#c0c0c0':i===2?'#cd7f32':'#666';
+    ctx.font='bold '+Math.round(10*s)+'px sans-serif';
+    ctx.fillText('P'+(i+1),px+8*s,y+13*s);
+    ctx.fillStyle=r.color;ctx.beginPath();ctx.arc(px+38*s,y+10*s,3.5*s,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font=Math.round(10*s)+'px sans-serif';
+    ctx.fillText(r.name.substring(0,12),px+46*s,y+13*s);
+  }
+  // Lap display
+  var leaderLap=Math.min(Math.floor(sorted[0].progress/100)+1,TOTAL_LAPS);
+  var lapText='LAP '+leaderLap+' / '+TOTAL_LAPS;
+  ctx.font='bold '+Math.round(11*s)+'px sans-serif';ctx.textAlign='center';
+  var tw=ctx.measureText(lapText).width;
+  ctx.fillStyle='rgba(0,0,0,0.72)';ctx.fillRect(w/2-tw/2-8*s,py,tw+16*s,22*s);
+  ctx.fillStyle='#fff';ctx.fillText(lapText,w/2,py+15*s);
+  // Camera mode
+  var camLabels={wide:'WIDE',chase:'CHASE',helicopter:'HELI',trackside:'TRACK',lowdrama:'CINE',reverse:'REVERSE',orbit:'ORBIT',onboard:'ONBOARD',topdown:'TOP',dramatic:'TELE',sweepCorner:'CORNER'};
+  var camText=camLabels[cameraMode]||cameraMode;
+  ctx.font='bold '+Math.round(9*s)+'px sans-serif';ctx.textAlign='right';
+  var ctw=ctx.measureText(camText).width;
+  ctx.fillStyle='rgba(0,0,0,0.72)';ctx.fillRect(w-ctw-26*s,py,ctw+20*s,20*s);
+  ctx.fillStyle='#e10600';ctx.fillText(camText,w-16*s,py+14*s);
+  ctx.textAlign='left';
+  // Progress bar
+  var pct=sorted[0].progress/(TOTAL_LAPS*100);
+  ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(0,h-3*s,w,3*s);
+  var grad=ctx.createLinearGradient(0,0,w*pct,0);
+  grad.addColorStop(0,'#e10600');grad.addColorStop(1,'#ffcc00');
+  ctx.fillStyle=grad;ctx.fillRect(0,h-3*s,w*pct,3*s);
 }
 
 function doFlash(){var f=qs('#flash');f.style.opacity='0.18';f.style.transition='opacity 0s';setTimeout(function(){f.style.transition='opacity .2s';f.style.opacity='0'},50)}
@@ -847,11 +928,12 @@ function startRaceLoop(){
     }
     updateCamera(time);updateHUD();
     renderer.render(scene,camera);
+    updateRecCanvas();
     if(allDone){
       phase='result';clearInterval(camTimer);cameraMode='orbit';
       doFlash();showComment('CHECKERED FLAG!');
       setTimeout(showResult,2500);
-      (function rr(t){updateCamera(t*0.001);renderer.render(scene,camera);if(phase==='result')requestAnimationFrame(rr)})(now);
+      (function rr(t){updateCamera(t*0.001);renderer.render(scene,camera);updateRecCanvas();if(phase==='result')requestAnimationFrame(rr)})(now);
       return;
     }
     animId=requestAnimationFrame(tick);
@@ -933,7 +1015,7 @@ function beginCountdown(){
     else if(count===0){cd.innerHTML='<div class="cd-g">GO!</div>';count--;
       setTimeout(function(){cd.style.display='none';phase='racing';startRaceLoop();startCameraSystem()},500)}
   }
-  (function pr(){renderer.render(scene,camera);if(phase!=='racing')requestAnimationFrame(pr)})();
+  (function pr(){renderer.render(scene,camera);updateRecCanvas();if(phase!=='racing')requestAnimationFrame(pr)})();
   ctick();
 }
 
@@ -964,7 +1046,7 @@ function resetAll(){
   cancelAnimationFrame(animId);clearInterval(camTimer);
   if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();mediaRecorder=null;recordedChunks=[]}
   qs('#recDot').style.display='none';
-  phase='setup';racers=[];winnerId=null;finishCount=0;recordStopQueued=false;
+  phase='setup';racers=[];winnerId=null;finishCount=0;recordStopQueued=false;recCanvas=null;recCtx=null;
   qs('#hud').style.display='none';qs('#progWrap').style.display='none';qs('#lapDisp').style.display='none';
   qs('#resultOverlay').style.display='none';qs('#resultOverlay').innerHTML='';
   var cb=document.querySelector('.confetti-box');if(cb)cb.remove();
