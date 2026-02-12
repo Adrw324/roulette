@@ -106,7 +106,8 @@ input{font-family:inherit;outline:none;border:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* ============ CONFIG ============ */
-var COLORS=['#e10600','#0090ff','#ff8700','#00d2be','#2b4562','#27f4d2','#b6babd','#ff69b4','#52e252','#ffcc00','#ff5599','#6644ff'];
+var COLORS=['#e10600','#0090ff','#ff8700','#00d2be','#2b4562','#27f4d2','#b6babd','#ff69b4','#52e252','#ffcc00','#ff5599','#6644ff','#00cc66','#ff4444','#8844cc','#cc8800','#44aaff','#ff66cc','#22ddaa','#aa44ff'];
+var TOTAL_LAPS=3;
 var CONF_C=['#e10600','#ffcc00','#0090ff','#00d2be','#ff8700','#fff','#52e252','#ff69b4'];
 var C_OV=['OVERTAKE!','WHAT A MOVE!','INCREDIBLE!','UNBELIEVABLE!'];
 var C_LD=['TAKES THE LEAD!','OUT IN FRONT!','LEADING THE PACK!'];
@@ -558,7 +559,7 @@ function buildScene(){
 
 /* ============ POSITION CAR ON CIRCUIT ============ */
 function positionCarOnTrack(car,progress){
-  var t=Math.max(0,Math.min(progress/100,0.9999));
+  var t=Math.max(0,Math.min((progress%100)/100,0.9999));
   var pos=circuit.getPointAt(t);
   var tan=circuit.getTangentAt(t).normalize();
   var right=new V().crossVectors(tan,new V(0,1,0)).normalize();
@@ -622,17 +623,18 @@ function startCameraSystem(){
   camTimer=setInterval(function(){
     if(phase!=='racing')return;
     var leader=getStandings()[0];
-    var prog=leader?leader.progress:0;
-    if(prog>85) switchCam(Math.random()<0.5?'chase':'lowdrama');
-    else if(prog>50) switchCam(pick(['chase','lowdrama','orbit','trackside','helicopter']));
-    else switchCam(pick(['wide','chase','helicopter','trackside','lowdrama','reverse','orbit']));
-  },3200);
+    var pct=leader?(leader.progress/(TOTAL_LAPS*100)*100):0;
+    if(pct>88) switchCam(pick(['chase','lowdrama','dramatic','onboard']));
+    else if(pct>65) switchCam(pick(['chase','lowdrama','onboard','dramatic','sweepCorner','trackside','orbit']));
+    else if(pct>30) switchCam(pick(['chase','helicopter','trackside','lowdrama','reverse','orbit','onboard','sweepCorner','topdown']));
+    else switchCam(pick(['wide','chase','helicopter','trackside','lowdrama','reverse','orbit','onboard','topdown','dramatic','sweepCorner']));
+  },2200);
 }
 
 function switchCam(mode){
   cameraMode=mode;
   var cam=qs('#hCam');
-  var labels={wide:'WIDE',chase:'CHASE CAM',helicopter:'HELICOPTER',trackside:'TRACKSIDE',lowdrama:'CINEMATIC',reverse:'REVERSE CAM',orbit:'ORBIT'};
+  var labels={wide:'WIDE',chase:'CHASE CAM',helicopter:'HELICOPTER',trackside:'TRACKSIDE',lowdrama:'CINEMATIC',reverse:'REVERSE CAM',orbit:'ORBIT',onboard:'ONBOARD',topdown:'TOP DOWN',dramatic:'TELEPHOTO',sweepCorner:'CORNER CAM'};
   if(cam)cam.innerHTML='<span class="h-rec"></span>'+(labels[mode]||mode);
   doFlash();
 }
@@ -641,7 +643,7 @@ function updateCamera(time){
   var sorted=getStandings();if(!sorted.length)return;
   var leader=sorted[0];
   var lCar=carMeshes[leader.id];if(!lCar)return;
-  var lt=Math.min(leader.progress/100,0.9999);
+  var lt=Math.min((leader.progress%100)/100,0.9999);
   var lPos=circuit.getPointAt(lt);
   var lTan=circuit.getTangentAt(lt).normalize();
   var lRight=new V().crossVectors(lTan,new V(0,1,0)).normalize();
@@ -681,6 +683,24 @@ function updateCamera(time){
     var angle=time*0.25;var radius=50;
     camGoalPos.set(cx+Math.cos(angle)*radius,20,cz+Math.sin(angle)*radius);
     camGoalTarget.set(cx,1,cz);camGoalFov=55;camLerp=0.022;
+  }else if(cameraMode==='onboard'){
+    var ob=new V().copy(lPos).addScaledVector(lTan,-5);ob.y=2;
+    var obLook=new V().copy(lPos).addScaledVector(lTan,20);obLook.y=1;
+    camGoalPos.copy(ob);camGoalTarget.copy(obLook);camGoalFov=78;camLerp=0.06;
+  }else if(cameraMode==='topdown'){
+    camGoalPos.set(lPos.x,40,lPos.z+3);
+    camGoalTarget.set(lPos.x,0,lPos.z);camGoalFov=50;camLerp=0.03;
+  }else if(cameraMode==='dramatic'){
+    var dBack=new V().copy(lPos).addScaledVector(lTan,-35);dBack.y=2.5;
+    var dLook=new V().copy(lPos).addScaledVector(lTan,5);dLook.y=1;
+    camGoalPos.copy(dBack);camGoalTarget.copy(dLook);camGoalFov=20;camLerp=0.025;
+  }else if(cameraMode==='sweepCorner'){
+    var crnT=((Math.floor(lt*6)+1)/6)%1;
+    var crnP=circuit.getPointAt(Math.max(0.0001,Math.min(crnT,0.9999)));
+    var crnTan=circuit.getTangentAt(Math.max(0.0001,Math.min(crnT,0.9999)));
+    var crnR=new V().crossVectors(crnTan,new V(0,1,0)).normalize();
+    var crnPos=new V().copy(crnP).addScaledVector(crnR,TRACK_W/2+10);crnPos.y=3;
+    camGoalPos.copy(crnPos);camGoalTarget.copy(lPos);camGoalTarget.y=1;camGoalFov=56;camLerp=0.03;
   }
 
   camPos.lerp(camGoalPos,camLerp);
@@ -739,38 +759,52 @@ function getStandings(){
 
 function startRaceLoop(){
   var lastTime=performance.now();
+  var totalDist=TOTAL_LAPS*100;
+  var lastLapAnnounce=0;
   function tick(now){
     if(phase!=='racing')return;
     var dt=Math.min(now-lastTime,50);lastTime=now;var time=now*0.001;
     var allDone=true;
     for(var i=0;i<racers.length;i++){
       var r=racers[i];if(r.finished)continue;allDone=false;
-      var jitter=(Math.random()-0.5)*0.7;
+      var jitter=(Math.random()-0.5)*0.5;
       var accel=r.speed+jitter;var isW=r.id===winnerId;var boost=0;
-      if(r.progress>75){
-        if(isW)boost=0.35+(r.progress-75)*0.02;
-        else boost=-0.03-(r.progress-75)*0.012;
-      }else if(r.progress>40){
-        if(isW)boost=0.12;else boost=(Math.random()-0.5)*0.06;
-      }else boost=(Math.random()-0.5)*0.1;
+      var pct=r.progress/totalDist*100;
+      if(pct>75){
+        if(isW)boost=0.3+(pct-75)*0.015;
+        else boost=-0.02-(pct-75)*0.008;
+      }else if(pct>40){
+        if(isW)boost=0.08;else boost=(Math.random()-0.5)*0.04;
+      }else boost=(Math.random()-0.5)*0.08;
       var delta=(accel+boost)*(dt/16);
-      r.progress=Math.min(r.progress+Math.max(delta,0.05),100);
-      r.speed+=(Math.random()-0.5)*0.015;
-      r.speed=Math.max(0.15,Math.min(0.6,r.speed));
-      if(r.progress>=100&&!r.finished){r.finished=true;finishCount++;r.finishOrder=finishCount}
+      r.progress=Math.min(r.progress+Math.max(delta,0.03),totalDist);
+      r.speed+=(Math.random()-0.5)*0.01;
+      r.speed=Math.max(0.1,Math.min(0.4,r.speed));
+      if(r.progress>=totalDist&&!r.finished){r.finished=true;finishCount++;r.finishOrder=finishCount}
     }
     // Commentary
     var sorted=getStandings();
     if(sorted.length>0){
       var nl=sorted[0].id;
-      if(lastLeaderId&&nl!==lastLeaderId&&sorted[0].progress>10&&sorted[0].progress<95){
+      var lPct=sorted[0].progress/totalDist*100;
+      if(lastLeaderId&&nl!==lastLeaderId&&lPct>5&&lPct<95){
         overtakeCount++;
         if(overtakeCount%2===0)showComment(sorted[0].name.toUpperCase()+' '+pick(C_LD));
         else showComment(pick(C_OV));
       }
       lastLeaderId=nl;
-      if(sorted.length>=2&&Math.abs(sorted[0].progress-sorted[1].progress)<3&&sorted[0].progress>30&&sorted[0].progress<90&&Math.random()<0.006)showComment(pick(C_CL));
-      if(sorted[0].progress>85&&sorted[0].progress<87)showComment(pick(C_FN));
+      if(sorted.length>=2&&Math.abs(sorted[0].progress-sorted[1].progress)<3&&lPct>15&&lPct<90&&Math.random()<0.006)showComment(pick(C_CL));
+      if(lPct>88&&lPct<90)showComment(pick(C_FN));
+      // Lap announcements
+      var leaderLap=Math.floor(sorted[0].progress/100)+1;
+      if(leaderLap>lastLapAnnounce&&leaderLap<=TOTAL_LAPS){
+        lastLapAnnounce=leaderLap;
+        if(leaderLap===TOTAL_LAPS)showComment('FINAL LAP!');
+        else if(leaderLap>1)showComment('LAP '+leaderLap);
+      }
+      // Update lap display
+      var dispLap=Math.min(leaderLap,TOTAL_LAPS);
+      qs('#lapDisp').textContent='LAP '+dispLap+' / '+TOTAL_LAPS;
     }
     // Update cars
     for(var ci=0;ci<racers.length;ci++){
@@ -801,7 +835,7 @@ function updateHUD(){
     h+='<div class="h-row"><span class="h-p '+pc+'">P'+(i+1)+'</span><span class="h-d" style="background:'+r.color+'"></span><span class="h-n">'+esc(r.name)+'</span></div>';
   }
   box.innerHTML=h;
-  var bar=qs('#progBar');if(bar&&sorted.length)bar.style.width=sorted[0].progress+'%';
+  var bar=qs('#progBar');if(bar&&sorted.length)bar.style.width=(sorted[0].progress/(TOTAL_LAPS*100)*100)+'%';
 }
 
 /* ============ UI SCREENS ============ */
@@ -816,7 +850,7 @@ function renderSetup(){
     var parts=raw.indexOf(',')!==-1?raw.split(','):[raw];
     for(var pi=0;pi<parts.length;pi++){
       var v=parts[pi].trim();
-      if(!v||options.length>=12)continue;
+      if(!v||options.length>=20)continue;
       idCnt++;options.push({id:'o'+idCnt,name:v,color:COLORS[options.length%COLORS.length]});
     }
     renderSetup();setTimeout(function(){var i=qs('#mInp');if(i)i.focus()},10);
@@ -850,10 +884,10 @@ function renderSetup(){
 function beginCountdown(){
   winnerId=options[Math.floor(Math.random()*options.length)].id;
   finishCount=0;lastLeaderId=null;overtakeCount=0;racers=[];
-  for(var i=0;i<options.length;i++){var o=options[i];racers.push({id:o.id,name:o.name,color:o.color,progress:0,speed:0.3+Math.random()*0.2,finished:false,finishOrder:0})}
+  for(var i=0;i<options.length;i++){var o=options[i];racers.push({id:o.id,name:o.name,color:o.color,progress:0,speed:0.15+Math.random()*0.12,finished:false,finishOrder:0})}
   qs('#setupScreen').style.display='none';
   buildScene();renderer.render(scene,camera);
-  qs('#hud').style.display='block';qs('#progWrap').style.display='block';updateHUD();
+  qs('#hud').style.display='block';qs('#progWrap').style.display='block';qs('#lapDisp').style.display='block';updateHUD();
   if(recordEnabled)startRecording();
   // Pre-race camera: aerial view of circuit
   camPos.set(0,90,60);camTarget.set(0,0,-10);
@@ -892,7 +926,7 @@ function resetAll(){
   if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();mediaRecorder=null;recordedChunks=[]}
   qs('#recDot').style.display='none';
   phase='setup';racers=[];winnerId=null;finishCount=0;
-  qs('#hud').style.display='none';qs('#progWrap').style.display='none';
+  qs('#hud').style.display='none';qs('#progWrap').style.display='none';qs('#lapDisp').style.display='none';
   qs('#resultOverlay').style.display='none';qs('#resultOverlay').innerHTML='';
   var cb=document.querySelector('.confetti-box');if(cb)cb.remove();
   renderSetup();
