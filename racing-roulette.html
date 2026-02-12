@@ -53,14 +53,18 @@ input{font-family:inherit;outline:none;border:none}
 .cd-g{font-size:9rem;font-weight:900;color:#00dd44;text-shadow:0 0 120px rgba(0,221,68,.6);animation:cdp .45s ease-out}
 @keyframes cdp{0%{transform:scale(3.5);opacity:0}35%{transform:scale(1);opacity:1}100%{transform:scale(.92);opacity:.85}}
 
-#resultOverlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:50}
-.r-card{background:#141428;border:1px solid #2a2a4a;border-radius:24px;padding:2.5rem;text-align:center;max-width:400px;width:90%;animation:rpop .5s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
-.r-card::before{content:'';position:absolute;inset:-2px;border-radius:25px;background:linear-gradient(135deg,#e10600,transparent,#ffcc00);z-index:-1;opacity:.5}
-@keyframes rpop{from{opacity:0;transform:scale(.7) translateY(30px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.r-t{font-size:3.5rem;margin-bottom:.4rem;animation:tb .6s ease-out .2s both}
-@keyframes tb{0%{transform:scale(0) rotate(-20deg)}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0)}}
-.r-l{font-size:.8rem;color:#888;text-transform:uppercase;letter-spacing:.15em;margin-bottom:.3rem}
-.r-w{font-size:2rem;font-weight:900;background:linear-gradient(135deg,#ffcc00,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.5rem}
+#resultOverlay{position:fixed;inset:0;background:radial-gradient(circle at 50% 30%,rgba(255,204,0,.12),rgba(0,0,0,.9) 60%);display:none;align-items:center;justify-content:center;z-index:50}
+.r-card{background:#141428;border:1px solid #2a2a4a;border-radius:24px;padding:2.5rem;text-align:center;max-width:420px;width:90%;animation:rpop .7s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
+.r-card::before{content:'';position:absolute;inset:-2px;border-radius:25px;background:linear-gradient(135deg,#ffcc00,#e10600,#ffcc00,#fff,#ffcc00);background-size:400% 400%;z-index:-1;opacity:.7;animation:rborder 3s ease infinite}
+@keyframes rborder{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes rpop{0%{opacity:0;transform:scale(.3) translateY(60px)}50%{opacity:1;transform:scale(1.05) translateY(-5px)}70%{transform:scale(0.97) translateY(2px)}100%{transform:scale(1) translateY(0)}}
+.r-t{font-size:4.5rem;margin-bottom:.5rem;animation:tb .9s cubic-bezier(.34,1.56,.64,1) .2s both}
+@keyframes tb{0%{transform:scale(0) rotate(-30deg)}50%{transform:scale(1.4) rotate(8deg)}75%{transform:scale(0.95) rotate(-2deg)}100%{transform:scale(1) rotate(0)}}
+.r-l{font-size:.75rem;color:#e10600;text-transform:uppercase;letter-spacing:.2em;margin-bottom:.5rem;font-weight:700;animation:rlFade .4s ease .5s both}
+@keyframes rlFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.r-w{font-size:2.3rem;font-weight:900;background:linear-gradient(90deg,#ffcc00,#fff,#ffcc00,#fff,#ffcc00);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.5rem;animation:rshine 2s linear infinite,rwFade .5s ease .8s both}
+@keyframes rshine{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes rwFade{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
 .r-list{text-align:left;margin-bottom:1.5rem}
 .r-lt{font-size:.65rem;color:#666;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem;font-weight:600}
 .r-row{display:flex;align-items:center;gap:.6rem;padding:.35rem 0;font-size:.85rem}
@@ -150,8 +154,8 @@ function hx(h){return parseInt(h.replace('#',''),16)}
 /* ============ THREE.JS ============ */
 function initThree(){
   scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x020210);
-  scene.fog=new THREE.FogExp2(0x020210,0.004);
+  scene.background=new THREE.Color(0x78b8e0);
+  scene.fog=new THREE.FogExp2(0x78b8e0,0.003);
   camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,600);
   renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
   renderer.setSize(window.innerWidth,window.innerHeight);
@@ -203,8 +207,8 @@ function buildScene(){
   circuit.getTangentAt=function(t){return _gta(Math.max(0.0001,Math.min(t,0.9999)))};
 
   // Lights (kept minimal for performance)
-  scene.add(new THREE.AmbientLight(0x556688,0.9));
-  var dir=new THREE.DirectionalLight(0xaaaadd,0.5);
+  scene.add(new THREE.AmbientLight(0xffffff,0.7));
+  var dir=new THREE.DirectionalLight(0xffeebb,0.9);
   dir.position.set(50,80,-30);dir.castShadow=true;
   dir.shadow.mapSize.set(1024,1024);
   dir.shadow.camera.left=-80;dir.shadow.camera.right=80;
@@ -212,7 +216,7 @@ function buildScene(){
   scene.add(dir);
 
   // Ground
-  var ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshPhongMaterial({color:0x0a1a0a}));
+  var ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshPhongMaterial({color:0x3a8a3a}));
   ground.rotation.x=-Math.PI/2;ground.position.y=-0.1;ground.receiveShadow=true;
   scene.add(ground);
 
@@ -436,7 +440,7 @@ function buildScene(){
   }
 
   // Trees/vegetation outside track
-  var treeMat=new THREE.MeshPhongMaterial({color:0x0a3a0a});
+  var treeMat=new THREE.MeshPhongMaterial({color:0x1a7a1a});
   var trunkMat=new THREE.MeshPhongMaterial({color:0x3a2a1a});
   for(var ti=0;ti<25;ti++){
     var tt=Math.random();
@@ -522,26 +526,19 @@ function buildScene(){
     }
   }
 
-  // Stars (more of them)
-  var starP=new Float32Array(1200*3);
-  for(var si2=0;si2<1200;si2++){
-    starP[si2*3]=(Math.random()-0.5)*500;
-    starP[si2*3+1]=50+Math.random()*200;
-    starP[si2*3+2]=(Math.random()-0.5)*500;
+  // Clouds
+  var cloudMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.85});
+  for(var cli=0;cli<15;cli++){
+    var cloudG=new THREE.Group();
+    for(var clb=0;clb<5;clb++){
+      var cs=3+Math.random()*5;
+      var cMesh=new THREE.Mesh(new THREE.SphereGeometry(cs,6,5),cloudMat);
+      cMesh.position.set((Math.random()-0.5)*cs*2,Math.random()*2,(Math.random()-0.5)*cs*2);
+      cMesh.scale.y=0.4;cloudG.add(cMesh);
+    }
+    cloudG.position.set((Math.random()-0.5)*400,55+Math.random()*40,(Math.random()-0.5)*400);
+    scene.add(cloudG);
   }
-  var starG=new THREE.BufferGeometry();
-  starG.setAttribute('position',new THREE.BufferAttribute(starP,3));
-  scene.add(new THREE.Points(starG,new THREE.PointsMaterial({color:0xffffff,size:0.4})));
-  // Dim stars layer
-  var starP2=new Float32Array(600*3);
-  for(var si3=0;si3<600;si3++){
-    starP2[si3*3]=(Math.random()-0.5)*400;
-    starP2[si3*3+1]=80+Math.random()*120;
-    starP2[si3*3+2]=(Math.random()-0.5)*400;
-  }
-  var starG2=new THREE.BufferGeometry();
-  starG2.setAttribute('position',new THREE.BufferAttribute(starP2,3));
-  scene.add(new THREE.Points(starG2,new THREE.PointsMaterial({color:0x8888ff,size:0.25,transparent:true,opacity:0.5})));
 
   // Cars on circuit
   for(var ci=0;ci<racers.length;ci++){
@@ -816,7 +813,8 @@ function startRaceLoop(){
     renderer.render(scene,camera);
     if(allDone){
       phase='result';clearInterval(camTimer);cameraMode='orbit';
-      setTimeout(showResult,1200);
+      doFlash();showComment('CHECKERED FLAG!');
+      setTimeout(showResult,2500);
       (function rr(t){updateCamera(t*0.001);renderer.render(scene,camera);if(phase==='result')requestAnimationFrame(rr)})(now);
       return;
     }
@@ -906,19 +904,27 @@ function beginCountdown(){
 function showResult(){
   var standings=getStandings();var w=standings[0];
   if(recordEnabled&&mediaRecorder&&mediaRecorder.state!=='inactive'){
-    setTimeout(function(){stopRecording()},800);
+    setTimeout(function(){stopRecording()},1500);
   }
+  // Strong flash
+  var fl=qs('#flash');fl.style.transition='none';fl.style.opacity='0.5';
+  setTimeout(function(){fl.style.transition='opacity .4s';fl.style.opacity='0'},100);
+  showComment(w.name.toUpperCase()+' WINS!');
+  // More confetti
   var cb=document.createElement('div');cb.className='confetti-box';
-  for(var i=0;i<60;i++){var p=document.createElement('div');p.className='conf';var sz=6+Math.random()*10;
-    p.style.cssText='left:'+Math.random()*100+'%;width:'+sz+'px;height:'+sz+'px;background:'+CONF_C[i%CONF_C.length]+';border-radius:'+(Math.random()>0.5?'50%':'2px')+';animation-delay:'+Math.random()*2+'s;animation-duration:'+(2+Math.random()*2)+'s';
+  for(var i=0;i<120;i++){var p=document.createElement('div');p.className='conf';var sz=6+Math.random()*12;
+    p.style.cssText='left:'+Math.random()*100+'%;width:'+sz+'px;height:'+sz+'px;background:'+CONF_C[i%CONF_C.length]+';border-radius:'+(Math.random()>0.5?'50%':'2px')+';animation-delay:'+Math.random()*3+'s;animation-duration:'+(2+Math.random()*3)+'s';
     cb.appendChild(p)}document.body.appendChild(cb);
   var medals=['\u{1F947}','\u{1F948}','\u{1F949}'];var pcls=['gd','sv','bz'];
-  var ov=qs('#resultOverlay');ov.style.display='flex';
-  var h='<div class="r-card"><div class="r-t">\u{1F3C6}</div><div class="r-l">WINNER</div><div class="r-w">'+esc(w.name)+'</div><div class="r-list"><div class="r-lt">Final Standings</div>';
-  for(var i=0;i<standings.length;i++){var r=standings[i];
-    h+='<div class="r-row"><span class="r-rp '+(pcls[i]||'')+'">'+(medals[i]||(i+1))+'</span><span class="r-rd" style="background:'+r.color+'"></span><span class="r-rn">'+esc(r.name)+'</span></div>'}
-  h+='</div><button class="r-btn" id="resetBtn">Race Again</button></div>';
-  ov.innerHTML=h;qs('#resetBtn').onclick=resetAll;
+  // Delayed card reveal for dramatic buildup
+  setTimeout(function(){
+    var ov=qs('#resultOverlay');ov.style.display='flex';
+    var h='<div class="r-card"><div class="r-t">\u{1F3C6}</div><div class="r-l">AND THE WINNER IS</div><div class="r-w">'+esc(w.name)+'</div><div class="r-list"><div class="r-lt">Final Standings</div>';
+    for(var i=0;i<standings.length;i++){var r=standings[i];
+      h+='<div class="r-row"><span class="r-rp '+(pcls[i]||'')+'">'+(medals[i]||(i+1))+'</span><span class="r-rd" style="background:'+r.color+'"></span><span class="r-rn">'+esc(r.name)+'</span></div>'}
+    h+='</div><button class="r-btn" id="resetBtn">Race Again</button></div>';
+    ov.innerHTML=h;qs('#resetBtn').onclick=resetAll;
+  },1200);
 }
 
 function resetAll(){
