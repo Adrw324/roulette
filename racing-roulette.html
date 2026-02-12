@@ -144,7 +144,7 @@ var scene,camera,renderer,circuit;
 var carMeshes={};
 var camPos,camTarget,camGoalPos,camGoalTarget,camGoalFov;
 var currentFov=60,camLerp=0.03,camTLerp=0.04;
-var recordEnabled=false,mediaRecorder=null,recordedChunks=[];
+var recordEnabled=false,mediaRecorder=null,recordedChunks=[],recordStopQueued=false;
 
 function qs(s){return document.querySelector(s)}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
@@ -570,32 +570,63 @@ function createCar(color){
   var g=new THREE.Group();
   var mat=new THREE.MeshPhongMaterial({color:color,shininess:90,specular:0x444444});
   var dark=new THREE.MeshPhongMaterial({color:0x111111,shininess:100});
-  // Body
-  var body=new THREE.Mesh(new THREE.BoxGeometry(3.8,0.4,1.1),mat);
+  var carbon=new THREE.MeshPhongMaterial({color:0x1a1a1a,shininess:60});
+  // Main body
+  var body=new THREE.Mesh(new THREE.BoxGeometry(3.8,0.35,1.1),mat);
   body.position.y=0.45;body.castShadow=true;g.add(body);
-  // Nose
-  var nose=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.22,0.6),mat);
-  nose.position.set(2.2,0.38,0);g.add(nose);
+  // Nose (long, tapered)
+  var nose=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.18,0.5),mat);
+  nose.position.set(2.4,0.38,0);g.add(nose);
+  // Sidepods
+  for(var sp=-1;sp<=1;sp+=2){
+    var sidepod=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.3,0.25),mat);
+    sidepod.position.set(-0.2,0.5,sp*0.58);g.add(sidepod);
+  }
   // Cockpit
-  var ck=new THREE.Mesh(new THREE.BoxGeometry(1,0.38,0.65),dark);
-  ck.position.set(-0.2,0.82,0);g.add(ck);
+  var ck=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.3,0.55),dark);
+  ck.position.set(0.2,0.78,0);g.add(ck);
+  // Driver helmet
+  var helmet=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,6),mat);
+  helmet.position.set(0.1,0.95,0);g.add(helmet);
+  // Halo
+  var haloBar=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.06,0.5),carbon);
+  haloBar.position.set(0.45,0.95,0);g.add(haloBar);
+  var haloPillar=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.22,0.06),carbon);
+  haloPillar.position.set(0.8,0.84,0);g.add(haloPillar);
+  // Airbox (intake above driver)
+  var airbox=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.35,0.3),mat);
+  airbox.position.set(-0.4,0.82,0);g.add(airbox);
+  // Engine cover (tapers to rear)
+  var engCover=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.22,0.55),mat);
+  engCover.position.set(-1.2,0.58,0);g.add(engCover);
   // Rear wing
-  var rw=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.55,1.3),mat);
+  var rw=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.5,1.3),mat);
   rw.position.set(-2,0.9,0);g.add(rw);
+  var drs=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.12,1.25),mat);
+  drs.position.set(-1.95,1.18,0);g.add(drs);
   for(var ws=-1;ws<=1;ws+=2){
     var sup=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.45,0.06),dark);
     sup.position.set(-2,0.6,ws*0.5);g.add(sup);
   }
-  // Front wing
-  var fw=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.15,1.3),mat);
-  fw.position.set(2.8,0.25,0);g.add(fw);
+  // Front wing with endplates
+  var fw=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.12,1.4),mat);
+  fw.position.set(2.9,0.22,0);g.add(fw);
+  for(var fe=-1;fe<=1;fe+=2){
+    var fep=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.16,0.04),mat);
+    fep.position.set(2.88,0.22,fe*0.72);g.add(fep);
+  }
+  // Floor plate
+  var floor=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.03,1.15),carbon);
+  floor.position.set(0,0.22,0);g.add(floor);
   // Wheels
   var wG=new THREE.CylinderGeometry(0.28,0.28,0.18,10);
   var wM=new THREE.MeshPhongMaterial({color:0x111111});
   [[1.3,0.28,0.65],[1.3,0.28,-0.65],[-1.3,0.28,0.65],[-1.3,0.28,-0.65]].forEach(function(p){
     var w=new THREE.Mesh(wG,wM);w.rotation.x=Math.PI/2;w.position.set(p[0],p[1],p[2]);g.add(w);
+    var hub=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.2,8),mat);
+    hub.rotation.x=Math.PI/2;hub.position.set(p[0],p[1],p[2]);g.add(hub);
   });
-  // Underglow (visual glow strip, no PointLight for performance)
+  // Underglow
   var glMesh=new THREE.Mesh(new THREE.PlaneGeometry(3,0.8),new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.4}));
   glMesh.rotation.x=-Math.PI/2;glMesh.position.y=0.05;g.add(glMesh);
   // Tail light
@@ -779,6 +810,11 @@ function startRaceLoop(){
       r.speed=Math.max(0.1,Math.min(0.4,r.speed));
       if(r.progress>=totalDist&&!r.finished){r.finished=true;finishCount++;r.finishOrder=finishCount}
     }
+    // Stop recording after top 3 finish + 3s
+    if(finishCount>=Math.min(3,racers.length)&&recordEnabled&&mediaRecorder&&!recordStopQueued){
+      recordStopQueued=true;
+      setTimeout(function(){stopRecording()},3000);
+    }
     // Commentary
     var sorted=getStandings();
     if(sorted.length>0){
@@ -903,9 +939,6 @@ function beginCountdown(){
 
 function showResult(){
   var standings=getStandings();var w=standings[0];
-  if(recordEnabled&&mediaRecorder&&mediaRecorder.state!=='inactive'){
-    setTimeout(function(){stopRecording()},1500);
-  }
   // Strong flash
   var fl=qs('#flash');fl.style.transition='none';fl.style.opacity='0.5';
   setTimeout(function(){fl.style.transition='opacity .4s';fl.style.opacity='0'},100);
@@ -931,7 +964,7 @@ function resetAll(){
   cancelAnimationFrame(animId);clearInterval(camTimer);
   if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.stop();mediaRecorder=null;recordedChunks=[]}
   qs('#recDot').style.display='none';
-  phase='setup';racers=[];winnerId=null;finishCount=0;
+  phase='setup';racers=[];winnerId=null;finishCount=0;recordStopQueued=false;
   qs('#hud').style.display='none';qs('#progWrap').style.display='none';qs('#lapDisp').style.display='none';
   qs('#resultOverlay').style.display='none';qs('#resultOverlay').innerHTML='';
   var cb=document.querySelector('.confetti-box');if(cb)cb.remove();
