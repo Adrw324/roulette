@@ -267,21 +267,24 @@ function buildScene(){
   ground.rotation.x=-Math.PI/2;ground.position.y=-0.1;ground.receiveShadow=true;
   scene.add(ground);
 
-  // Tarmac run-off area (wide asphalt surrounding track - F1 style)
+  // Tarmac run-off area (lighter grey asphalt)
   var runoffCV=document.createElement('canvas');runoffCV.width=64;runoffCV.height=64;
-  var roCx=runoffCV.getContext('2d');roCx.fillStyle='#2a2a2e';roCx.fillRect(0,0,64,64);
-  for(var roi=0;roi<100;roi++){roCx.fillStyle=Math.random()>0.5?'#252528':'#2e2e32';roCx.fillRect(Math.random()*64,Math.random()*64,2+Math.random()*3,2+Math.random()*3)}
+  var roCx=runoffCV.getContext('2d');roCx.fillStyle='#556065';roCx.fillRect(0,0,64,64);
+  for(var roi=0;roi<120;roi++){roCx.fillStyle=Math.random()>0.5?'#4d5558':'#5a6468';roCx.fillRect(Math.random()*64,Math.random()*64,2+Math.random()*3,2+Math.random()*3)}
   var runoffTex=new THREE.CanvasTexture(runoffCV);runoffTex.wrapS=runoffTex.wrapT=THREE.RepeatWrapping;runoffTex.repeat.set(30,30);
   var runoffGeo=buildRibbonGeo(circuit,TRACK_W+12,500,0.008);
-  scene.add(new THREE.Mesh(runoffGeo,new THREE.MeshPhongMaterial({map:runoffTex,shininess:5})));
+  scene.add(new THREE.Mesh(runoffGeo,new THREE.MeshBasicMaterial({map:runoffTex})));
 
-  // Track surface
+  // Track surface (proper visible grey asphalt)
   var trackCV=document.createElement('canvas');trackCV.width=128;trackCV.height=128;
-  var tCx=trackCV.getContext('2d');tCx.fillStyle='#1a1a1a';tCx.fillRect(0,0,128,128);
-  for(var txi=0;txi<150;txi++){tCx.fillStyle=Math.random()>0.5?'#171717':'#1e1e1e';tCx.fillRect(Math.random()*128,Math.random()*128,1+Math.random()*3,1+Math.random()*3)}
+  var tCx=trackCV.getContext('2d');tCx.fillStyle='#606868';tCx.fillRect(0,0,128,128);
+  for(var txi=0;txi<200;txi++){tCx.fillStyle=Math.random()>0.5?'#585f5f':'#686f6f';tCx.fillRect(Math.random()*128,Math.random()*128,1+Math.random()*3,1+Math.random()*3)}
+  // Rubber marks / tire traces for realism
+  tCx.fillStyle='#505555';
+  for(var rmi=0;rmi<15;rmi++){tCx.fillRect(Math.random()*128,Math.random()*128,1,8+Math.random()*20)}
   var trackTex2=new THREE.CanvasTexture(trackCV);trackTex2.wrapS=trackTex2.wrapT=THREE.RepeatWrapping;trackTex2.repeat.set(40,40);
   var trackGeo=buildRibbonGeo(circuit,TRACK_W,500,0.02);
-  var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshPhongMaterial({map:trackTex2,shininess:15}));
+  var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshBasicMaterial({map:trackTex2}));
   trackMesh.receiveShadow=true;
   scene.add(trackMesh);
 
