@@ -244,11 +244,39 @@ function buildScene(){
   ground.rotation.x=-Math.PI/2;ground.position.y=-0.1;ground.receiveShadow=true;
   scene.add(ground);
 
+  // Tarmac run-off area (wide asphalt surrounding track - F1 style)
+  var runoffCV=document.createElement('canvas');runoffCV.width=64;runoffCV.height=64;
+  var roCx=runoffCV.getContext('2d');roCx.fillStyle='#2a2a2e';roCx.fillRect(0,0,64,64);
+  for(var roi=0;roi<100;roi++){roCx.fillStyle=Math.random()>0.5?'#252528':'#2e2e32';roCx.fillRect(Math.random()*64,Math.random()*64,2+Math.random()*3,2+Math.random()*3)}
+  var runoffTex=new THREE.CanvasTexture(runoffCV);runoffTex.wrapS=runoffTex.wrapT=THREE.RepeatWrapping;runoffTex.repeat.set(30,30);
+  var runoffGeo=buildRibbonGeo(circuit,TRACK_W+12,500,0.008);
+  scene.add(new THREE.Mesh(runoffGeo,new THREE.MeshPhongMaterial({map:runoffTex,shininess:5})));
+
   // Track surface
+  var trackCV=document.createElement('canvas');trackCV.width=128;trackCV.height=128;
+  var tCx=trackCV.getContext('2d');tCx.fillStyle='#1a1a1a';tCx.fillRect(0,0,128,128);
+  for(var txi=0;txi<150;txi++){tCx.fillStyle=Math.random()>0.5?'#171717':'#1e1e1e';tCx.fillRect(Math.random()*128,Math.random()*128,1+Math.random()*3,1+Math.random()*3)}
+  var trackTex2=new THREE.CanvasTexture(trackCV);trackTex2.wrapS=trackTex2.wrapT=THREE.RepeatWrapping;trackTex2.repeat.set(40,40);
   var trackGeo=buildRibbonGeo(circuit,TRACK_W,500,0.02);
-  var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshPhongMaterial({color:0x222222,shininess:10}));
+  var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshPhongMaterial({map:trackTex2,shininess:15}));
   trackMesh.receiveShadow=true;
   scene.add(trackMesh);
+
+  // White track edge lines (F1 style)
+  for(var el=-1;el<=1;el+=2){
+    var elGeo=buildRibbonGeo(circuit,0.3,500,0.035);
+    var elPos=elGeo.attributes.position.array;
+    for(var eli=0;eli<=500;eli++){
+      var elt=eli/500;
+      var eltan=circuit.getTangentAt(Math.max(0.0001,Math.min(elt,0.9999)));
+      var elright=new V().crossVectors(eltan,new V(0,1,0)).normalize();
+      var eloff=elright.clone().multiplyScalar(el*(TRACK_W/2-0.15));
+      elPos[eli*6]+=eloff.x;elPos[eli*6+2]+=eloff.z;
+      elPos[eli*6+3]+=eloff.x;elPos[eli*6+5]+=eloff.z;
+    }
+    elGeo.attributes.position.needsUpdate=true;elGeo.computeVertexNormals();
+    scene.add(new THREE.Mesh(elGeo,new THREE.MeshBasicMaterial({color:0xffffff})));
+  }
 
   // Kerbs (red/white)
   var kCanvas=document.createElement('canvas');kCanvas.width=64;kCanvas.height=16;
@@ -271,17 +299,18 @@ function buildScene(){
     scene.add(new THREE.Mesh(kGeo,new THREE.MeshBasicMaterial({map:kTex})));
   }
 
-  // Barriers
-  var bMat=new THREE.MeshPhongMaterial({color:0x444455});
-  for(var bi=0;bi<50;bi++){
-    var bt=bi/50;
+  // TecPro barriers (pushed out beyond run-off - F1 style)
+  var bMat=new THREE.MeshPhongMaterial({color:0x3344aa});
+  var bMatRed=new THREE.MeshPhongMaterial({color:0xcc2222});
+  for(var bi=0;bi<60;bi++){
+    var bt=bi/60;
     var bp=circuit.getPointAt(bt);
     var btan=circuit.getTangentAt(bt);
     var bright=new V().crossVectors(btan,new V(0,1,0)).normalize();
     for(var bs=-1;bs<=1;bs+=2){
-      var bm=new THREE.Mesh(new THREE.BoxGeometry(4,1.2,0.4),bMat);
-      var boff=bright.clone().multiplyScalar(bs*(TRACK_W/2+2));
-      bm.position.set(bp.x+boff.x,0.6,bp.z+boff.z);
+      var bm=new THREE.Mesh(new THREE.BoxGeometry(3.5,1.4,0.5),bi%5===0?bMatRed:bMat);
+      var boff=bright.clone().multiplyScalar(bs*(TRACK_W/2+7));
+      bm.position.set(bp.x+boff.x,0.7,bp.z+boff.z);
       bm.rotation.y=Math.atan2(-btan.z,btan.x);
       scene.add(bm);
     }
@@ -313,15 +342,54 @@ function buildScene(){
   fMesh.rotation.z=-Math.atan2(-ftan.z,ftan.x);
   scene.add(fMesh);
 
+  // Starting grid position markings (F1 grid boxes)
+  var gridMat=new THREE.MeshBasicMaterial({color:0xffffff});
+  for(var gr=0;gr<20;gr++){
+    var grow=Math.floor(gr/2);
+    var gcol=gr%2;
+    var gridT=(0.996-grow*0.007);if(gridT<0)gridT+=1;
+    gridT=Math.max(0.0001,Math.min(gridT,0.9999));
+    var gp2=circuit.getPointAt(gridT);
+    var gtan2=circuit.getTangentAt(gridT);
+    var gright2=new V().crossVectors(gtan2,new V(0,1,0)).normalize();
+    var gOff=gright2.clone().multiplyScalar((gcol===0?-1:1)*2.8);
+    // Front grid line
+    var gridLine=new THREE.Mesh(new THREE.PlaneGeometry(3.2,0.15),gridMat);
+    gridLine.rotation.x=-Math.PI/2;
+    gridLine.position.set(gp2.x+gOff.x,0.04,gp2.z+gOff.z);
+    gridLine.rotation.z=-Math.atan2(-gtan2.z,gtan2.x);
+    scene.add(gridLine);
+    // Side lines of box
+    for(var gls=-1;gls<=1;gls+=2){
+      var sideOff=gright2.clone().multiplyScalar(gls*1.6);
+      var sideLine=new THREE.Mesh(new THREE.PlaneGeometry(0.1,1.8),gridMat);
+      sideLine.rotation.x=-Math.PI/2;
+      sideLine.position.set(gp2.x+gOff.x+sideOff.x,0.04,gp2.z+gOff.z+sideOff.z);
+      sideLine.rotation.z=-Math.atan2(-gtan2.z,gtan2.x);
+      scene.add(sideLine);
+    }
+    // Position number
+    var numCV=document.createElement('canvas');numCV.width=64;numCV.height=64;
+    var numCx=numCV.getContext('2d');numCx.fillStyle='#ffffff';numCx.font='bold 48px sans-serif';numCx.textAlign='center';numCx.textBaseline='middle';
+    numCx.fillText(''+(gr+1),32,32);
+    var numTex=new THREE.CanvasTexture(numCV);
+    var numMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.2),new THREE.MeshBasicMaterial({map:numTex,transparent:true}));
+    numMesh.rotation.x=-Math.PI/2;
+    var numFwd=new V().copy(gtan2).multiplyScalar(-0.5);
+    numMesh.position.set(gp2.x+gOff.x+numFwd.x,0.04,gp2.z+gOff.z+numFwd.z);
+    numMesh.rotation.z=-Math.atan2(-gtan2.z,gtan2.x);
+    scene.add(numMesh);
+  }
+
   // Start/Finish gantry
   var gMat=new THREE.MeshPhongMaterial({color:0x888888});
-  var gLeft=new V().copy(fp).addScaledVector(fright,-TRACK_W/2-2);
-  var gRight=new V().copy(fp).addScaledVector(fright,TRACK_W/2+2);
+  var gLeft=new V().copy(fp).addScaledVector(fright,-TRACK_W/2-7);
+  var gRight=new V().copy(fp).addScaledVector(fright,TRACK_W/2+7);
   var pole1=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,10,6),gMat);
   pole1.position.set(gLeft.x,5,gLeft.z);scene.add(pole1);
   var pole2=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,10,6),gMat);
   pole2.position.set(gRight.x,5,gRight.z);scene.add(pole2);
-  var crossbar=new THREE.Mesh(new THREE.BoxGeometry(TRACK_W+4,0.4,1),gMat);
+  var crossbar=new THREE.Mesh(new THREE.BoxGeometry(TRACK_W+14,0.4,1),gMat);
   crossbar.position.set(fp.x,10,fp.z);
   crossbar.rotation.y=Math.atan2(-ftan.z,ftan.x)+Math.PI/2;
   scene.add(crossbar);
@@ -335,7 +403,7 @@ function buildScene(){
     var ltan=circuit.getTangentAt(lt);
     var lright=new V().crossVectors(ltan,new V(0,1,0)).normalize();
     for(var ls=-1;ls<=1;ls+=2){
-      var lo=lright.clone().multiplyScalar(ls*(TRACK_W/2+5));
+      var lo=lright.clone().multiplyScalar(ls*(TRACK_W/2+8));
       var pole=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,10,6),poleMat);
       pole.position.set(lp.x+lo.x,5,lp.z+lo.z);scene.add(pole);
       var bulb=new THREE.Mesh(new THREE.SphereGeometry(0.3,6,6),bulbMat);
@@ -414,7 +482,7 @@ function buildScene(){
     var adtan=circuit.getTangentAt(at);
     var aright=new V().crossVectors(adtan,new V(0,1,0)).normalize();
     var aside=(ai%3===0)?-1:1;
-    var aoff=aright.clone().multiplyScalar(aside*(TRACK_W/2+1.8));
+    var aoff=aright.clone().multiplyScalar(aside*(TRACK_W/2+6.8));
     var adTex=makeAdTex(['#e10600','#0090ff','#ffcc00','#00d2be','#ff8700','#52e252'][ai%6],adTexts[ai%adTexts.length]);
     var adBoard=new THREE.Mesh(new THREE.PlaneGeometry(3.5,0.8),new THREE.MeshBasicMaterial({map:adTex}));
     adBoard.position.set(ap.x+aoff.x,1.5,ap.z+aoff.z);
