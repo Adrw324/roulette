@@ -278,25 +278,43 @@ function buildScene(){
     scene.add(new THREE.Mesh(elGeo,new THREE.MeshBasicMaterial({color:0xffffff})));
   }
 
-  // Kerbs (red/white)
+  // Kerbs (red/white - F1 style with wider sausage kerbs)
   var kCanvas=document.createElement('canvas');kCanvas.width=64;kCanvas.height=16;
   var kctx=kCanvas.getContext('2d');
   for(var k=0;k<8;k++){kctx.fillStyle=k%2===0?'#e10600':'#fff';kctx.fillRect(k*8,0,8,16)}
   var kTex=new THREE.CanvasTexture(kCanvas);kTex.wrapS=kTex.wrapT=THREE.RepeatWrapping;
+  // Yellow/blue secondary kerb texture
+  var k2Canvas=document.createElement('canvas');k2Canvas.width=64;k2Canvas.height=16;
+  var k2ctx=k2Canvas.getContext('2d');
+  for(var k2=0;k2<8;k2++){k2ctx.fillStyle=k2%2===0?'#ffcc00':'#0055aa';k2ctx.fillRect(k2*8,0,8,16)}
+  var k2Tex=new THREE.CanvasTexture(k2Canvas);k2Tex.wrapS=k2Tex.wrapT=THREE.RepeatWrapping;
   for(var side=-1;side<=1;side+=2){
-    var kGeo=buildRibbonGeo(circuit,1.2,500,0.03);
-    // Offset kerb to edge
+    // Inner kerb (red/white)
+    var kGeo=buildRibbonGeo(circuit,1.4,500,0.03);
     var kPos=kGeo.attributes.position.array;
     for(var ki=0;ki<=500;ki++){
       var t=ki/500;
-      var tan=circuit.getTangentAt(t);
+      var tan=circuit.getTangentAt(Math.max(0.0001,Math.min(t,0.9999)));
       var right=new V().crossVectors(tan,new V(0,1,0)).normalize();
-      var off=right.clone().multiplyScalar(side*(TRACK_W/2+0.6));
+      var off=right.clone().multiplyScalar(side*(TRACK_W/2+0.7));
       kPos[ki*6]+=off.x;kPos[ki*6+2]+=off.z;
       kPos[ki*6+3]+=off.x;kPos[ki*6+5]+=off.z;
     }
     kGeo.attributes.position.needsUpdate=true;kGeo.computeVertexNormals();
     scene.add(new THREE.Mesh(kGeo,new THREE.MeshBasicMaterial({map:kTex})));
+    // Outer sausage kerb (yellow/blue)
+    var k2Geo=buildRibbonGeo(circuit,0.8,500,0.045);
+    var k2Pos=k2Geo.attributes.position.array;
+    for(var k2i=0;k2i<=500;k2i++){
+      var t2=k2i/500;
+      var tan2=circuit.getTangentAt(Math.max(0.0001,Math.min(t2,0.9999)));
+      var right2=new V().crossVectors(tan2,new V(0,1,0)).normalize();
+      var off2=right2.clone().multiplyScalar(side*(TRACK_W/2+1.8));
+      k2Pos[k2i*6]+=off2.x;k2Pos[k2i*6+2]+=off2.z;
+      k2Pos[k2i*6+3]+=off2.x;k2Pos[k2i*6+5]+=off2.z;
+    }
+    k2Geo.attributes.position.needsUpdate=true;k2Geo.computeVertexNormals();
+    scene.add(new THREE.Mesh(k2Geo,new THREE.MeshBasicMaterial({map:k2Tex})));
   }
 
   // TecPro barriers (pushed out beyond run-off - F1 style)
@@ -441,7 +459,7 @@ function buildScene(){
     var sp=circuit.getPointAt(sd.t);
     var stan=circuit.getTangentAt(sd.t);
     var sright=new V().crossVectors(stan,new V(0,1,0)).normalize();
-    var soff=sright.clone().multiplyScalar(sd.side*(TRACK_W/2+10));
+    var soff=sright.clone().multiplyScalar(sd.side*(TRACK_W/2+16));
     var sAng=Math.atan2(-stan.z,stan.x);
     // Stand structure (tiered)
     var sMat=new THREE.MeshPhongMaterial({color:0x1a1a2e});
@@ -490,44 +508,99 @@ function buildScene(){
     scene.add(adBoard);
   }
 
-  // Pit lane buildings (along start/finish straight)
+  // Pit lane complex (F1 style)
   var pitStart=circuit.getPointAt(0.95);
   var pitEnd=circuit.getPointAt(0.03);
   var pitTan=circuit.getTangentAt(0.99);
   var pitRight=new V().crossVectors(pitTan,new V(0,1,0)).normalize();
-  var pitOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+16));
-  // Main pit building
-  var pitBld=new THREE.Mesh(new THREE.BoxGeometry(40,4,8),new THREE.MeshPhongMaterial({color:0x1a1a3a}));
-  pitBld.position.set((pitStart.x+pitEnd.x)/2+pitOff.x,2,(pitStart.z+pitEnd.z)/2+pitOff.z);
-  pitBld.rotation.y=Math.atan2(-pitTan.z,pitTan.x);pitBld.castShadow=true;scene.add(pitBld);
-  // Pit wall
-  var pitWall=new THREE.Mesh(new THREE.BoxGeometry(40,1.2,0.3),new THREE.MeshPhongMaterial({color:0x444466}));
-  var pitWallOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+8));
-  pitWall.position.set((pitStart.x+pitEnd.x)/2+pitWallOff.x,0.6,(pitStart.z+pitEnd.z)/2+pitWallOff.z);
-  pitWall.rotation.y=Math.atan2(-pitTan.z,pitTan.x);scene.add(pitWall);
-  // Pit gantry screens (info boards above pit)
+  var pitAng=Math.atan2(-pitTan.z,pitTan.x);
+  var pitCx=(pitStart.x+pitEnd.x)/2,pitCz=(pitStart.z+pitEnd.z)/2;
+
+  // Pit lane road surface (dark asphalt)
+  var pitRoadOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+12));
+  var pitRoad=new THREE.Mesh(new THREE.PlaneGeometry(45,5),new THREE.MeshPhongMaterial({color:0x222226,shininess:8}));
+  pitRoad.rotation.x=-Math.PI/2;pitRoad.position.set(pitCx+pitRoadOff.x,0.015,pitCz+pitRoadOff.z);
+  pitRoad.rotation.z=-pitAng;scene.add(pitRoad);
+  // Pit lane white center line
+  var pitLineOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+12));
+  var pitLine=new THREE.Mesh(new THREE.PlaneGeometry(44,0.15),new THREE.MeshBasicMaterial({color:0xffffff}));
+  pitLine.rotation.x=-Math.PI/2;pitLine.position.set(pitCx+pitLineOff.x,0.02,pitCz+pitLineOff.z);
+  pitLine.rotation.z=-pitAng;scene.add(pitLine);
+  // Pit lane speed limit marking
+  var speedCV=document.createElement('canvas');speedCV.width=128;speedCV.height=64;
+  var spCx=speedCV.getContext('2d');spCx.fillStyle='#ffffff';spCx.font='bold 42px sans-serif';spCx.textAlign='center';spCx.textBaseline='middle';spCx.fillText('60',64,32);
+  var speedTex=new THREE.CanvasTexture(speedCV);
+  var speedMark=new THREE.Mesh(new THREE.PlaneGeometry(2.5,1.2),new THREE.MeshBasicMaterial({map:speedTex,transparent:true}));
+  speedMark.rotation.x=-Math.PI/2;
+  var speedP=circuit.getPointAt(0.96);var speedOff2=pitRight.clone().multiplyScalar(-(TRACK_W/2+12));
+  speedMark.position.set(speedP.x+speedOff2.x,0.025,speedP.z+speedOff2.z);
+  speedMark.rotation.z=-pitAng;scene.add(speedMark);
+  // Pit boxes (individual garages with team color dividers)
+  var pitBoxColors=[0xe10600,0x0090ff,0xff8700,0x00d2be,0x2b4562,0x27f4d2,0xb6babd,0xff69b4,0x52e252,0xffcc00];
+  var pitBldOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+16));
+  for(var pbi=0;pbi<10;pbi++){
+    var pbx=pitCx+pitBldOff.x+(pbi-4.5)*3.8*Math.cos(pitAng);
+    var pbz=pitCz+pitBldOff.z-(pbi-4.5)*3.8*Math.sin(pitAng);
+    // Garage box
+    var garage=new THREE.Mesh(new THREE.BoxGeometry(3.5,4,8),new THREE.MeshPhongMaterial({color:0x1a1a2e}));
+    garage.position.set(pbx,2,pbz);garage.rotation.y=pitAng;garage.castShadow=true;scene.add(garage);
+    // Team color stripe on front
+    var teamStripe=new THREE.Mesh(new THREE.PlaneGeometry(3.4,0.4),new THREE.MeshBasicMaterial({color:pitBoxColors[pbi]}));
+    var tsFwd=pitRight.clone().multiplyScalar(4.01);
+    teamStripe.position.set(pbx-tsFwd.x,3.5,pbz-tsFwd.z);
+    teamStripe.rotation.y=pitAng+Math.PI/2;scene.add(teamStripe);
+  }
+  // Pit wall (separates pit lane from track)
+  var pitWallOff=pitRight.clone().multiplyScalar(-(TRACK_W/2+9.5));
+  var pitWall=new THREE.Mesh(new THREE.BoxGeometry(44,1.3,0.4),new THREE.MeshPhongMaterial({color:0x555577}));
+  pitWall.position.set(pitCx+pitWallOff.x,0.65,pitCz+pitWallOff.z);
+  pitWall.rotation.y=pitAng;scene.add(pitWall);
+  // Pit wall top - white line
+  var pitWallTop=new THREE.Mesh(new THREE.BoxGeometry(44,0.06,0.5),new THREE.MeshBasicMaterial({color:0xffffff}));
+  pitWallTop.position.set(pitCx+pitWallOff.x,1.33,pitCz+pitWallOff.z);
+  pitWallTop.rotation.y=pitAng;scene.add(pitWallTop);
+  // Pit gantry screens (timing boards)
   for(var pi=0;pi<3;pi++){
-    var scrn=new THREE.Mesh(new THREE.BoxGeometry(6,2,0.2),new THREE.MeshBasicMaterial({color:0x112244}));
-    var pOff2=pitRight.clone().multiplyScalar(-(TRACK_W/2+10));
+    var pOff2=pitRight.clone().multiplyScalar(-(TRACK_W/2+12));
     var ptp=circuit.getPointAt(0.96+pi*0.015);
-    scrn.position.set(ptp.x+pOff2.x,5,ptp.z+pOff2.z);
-    scrn.rotation.y=Math.atan2(-pitTan.z,pitTan.x);scene.add(scrn);
+    // Gantry poles
+    for(var pgs=-1;pgs<=1;pgs+=2){
+      var pgOff=pitRight.clone().multiplyScalar(pgs*2.5);
+      var pgPole=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,6,6),new THREE.MeshPhongMaterial({color:0x666666}));
+      pgPole.position.set(ptp.x+pOff2.x+pgOff.x,3,ptp.z+pOff2.z+pgOff.z);scene.add(pgPole);
+    }
+    var scrn=new THREE.Mesh(new THREE.BoxGeometry(6,2,0.2),new THREE.MeshBasicMaterial({color:0x112244}));
+    scrn.position.set(ptp.x+pOff2.x,6.5,ptp.z+pOff2.z);
+    scrn.rotation.y=pitAng;scene.add(scrn);
+    // "LIVE TIMING" text on screen
+    var ltCV=document.createElement('canvas');ltCV.width=128;ltCV.height=32;
+    var ltCx=ltCV.getContext('2d');ltCx.fillStyle='#112244';ltCx.fillRect(0,0,128,32);
+    ltCx.fillStyle='#44aaff';ltCx.font='bold 14px sans-serif';ltCx.textAlign='center';ltCx.textBaseline='middle';
+    ltCx.fillText(['LIVE TIMING','SECTOR TIMES','PIT STOPS'][pi],64,16);
+    var ltTex=new THREE.CanvasTexture(ltCV);
+    var ltFace=new THREE.Mesh(new THREE.PlaneGeometry(5.8,1.8),new THREE.MeshBasicMaterial({map:ltTex}));
+    var ltFwd=pitRight.clone().multiplyScalar(0.15);
+    ltFace.position.set(ptp.x+pOff2.x-ltFwd.x,6.5,ptp.z+pOff2.z-ltFwd.z);
+    ltFace.rotation.y=pitAng+Math.PI/2;scene.add(ltFace);
   }
 
-  // Marshal posts with flags
+  // Marshal posts with flags (outside run-off)
   var marshalT=[0.12,0.25,0.37,0.5,0.62,0.75,0.87];
   var flagColors=[0x00ff00,0xffcc00,0x00ff00,0x0000ff,0x00ff00,0xffcc00,0x00ff00];
   for(var mi=0;mi<marshalT.length;mi++){
     var mp=circuit.getPointAt(marshalT[mi]);
     var mtan=circuit.getTangentAt(marshalT[mi]);
     var mright=new V().crossVectors(mtan,new V(0,1,0)).normalize();
-    var moff=mright.clone().multiplyScalar((mi%2===0?1:-1)*(TRACK_W/2+4));
+    var moff=mright.clone().multiplyScalar((mi%2===0?1:-1)*(TRACK_W/2+7.5));
+    // Marshal hut
+    var mHut=new THREE.Mesh(new THREE.BoxGeometry(1.5,2,1.2),new THREE.MeshPhongMaterial({color:0xdddd33}));
+    mHut.position.set(mp.x+moff.x,1,mp.z+moff.z);mHut.rotation.y=Math.atan2(-mtan.z,mtan.x);scene.add(mHut);
     // Post
-    var mPole=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,3,6),new THREE.MeshPhongMaterial({color:0x888888}));
-    mPole.position.set(mp.x+moff.x,1.5,mp.z+moff.z);scene.add(mPole);
+    var mPole=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,4,6),new THREE.MeshPhongMaterial({color:0x888888}));
+    mPole.position.set(mp.x+moff.x,2,mp.z+moff.z);scene.add(mPole);
     // Flag
-    var flag=new THREE.Mesh(new THREE.PlaneGeometry(0.6,0.4),new THREE.MeshBasicMaterial({color:flagColors[mi],side:THREE.DoubleSide}));
-    flag.position.set(mp.x+moff.x+0.35,2.8,mp.z+moff.z);
+    var flag=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.45),new THREE.MeshBasicMaterial({color:flagColors[mi],side:THREE.DoubleSide}));
+    flag.position.set(mp.x+moff.x+0.4,3.8,mp.z+moff.z);
     flag.rotation.y=Math.atan2(-mtan.z,mtan.x);scene.add(flag);
   }
 
@@ -554,19 +627,58 @@ function buildScene(){
     canopy.position.set(tx,tH+cR*0.5,tz);canopy.castShadow=true;scene.add(canopy);
   }
 
-  // Run-off gravel at corners
-  var gravelMat=new THREE.MeshPhongMaterial({color:0x554433});
+  // F1 corner run-off zones (colored tarmac + gravel traps)
   var cornerTs=[0.12,0.28,0.42,0.55,0.7,0.85];
+  var cornerRunoffColors=[0x0044aa,0xcc0000,0x0044aa,0xcc0000,0x0044aa,0xcc0000];
   for(var gi=0;gi<cornerTs.length;gi++){
     var gp=circuit.getPointAt(cornerTs[gi]);
     var gtan=circuit.getTangentAt(cornerTs[gi]);
     var gright=new V().crossVectors(gtan,new V(0,1,0)).normalize();
     for(var gs=-1;gs<=1;gs+=2){
-      var goff=gright.clone().multiplyScalar(gs*(TRACK_W/2+4));
-      var gravel=new THREE.Mesh(new THREE.PlaneGeometry(10,6),gravelMat);
-      gravel.rotation.x=-Math.PI/2;gravel.position.set(gp.x+goff.x,0.01,gp.z+goff.z);
+      // Blue/Red painted run-off (like Paul Ricard)
+      var paintOff=gright.clone().multiplyScalar(gs*(TRACK_W/2+3));
+      var paintRunoff=new THREE.Mesh(new THREE.PlaneGeometry(14,8),new THREE.MeshPhongMaterial({color:cornerRunoffColors[gi]}));
+      paintRunoff.rotation.x=-Math.PI/2;paintRunoff.position.set(gp.x+paintOff.x,0.012,gp.z+paintOff.z);
+      paintRunoff.rotation.z=-Math.atan2(-gtan.z,gtan.x);scene.add(paintRunoff);
+      // White stripes on painted run-off
+      for(var stri=0;stri<3;stri++){
+        var strOff=gright.clone().multiplyScalar(gs*(TRACK_W/2+1.5+stri*2));
+        var stripe=new THREE.Mesh(new THREE.PlaneGeometry(13,0.2),new THREE.MeshBasicMaterial({color:0xffffff}));
+        stripe.rotation.x=-Math.PI/2;stripe.position.set(gp.x+strOff.x,0.015,gp.z+strOff.z);
+        stripe.rotation.z=-Math.atan2(-gtan.z,gtan.x);scene.add(stripe);
+      }
+      // Gravel trap beyond painted area
+      var gravelOff=gright.clone().multiplyScalar(gs*(TRACK_W/2+9));
+      var gravelCV=document.createElement('canvas');gravelCV.width=32;gravelCV.height=32;
+      var grCx=gravelCV.getContext('2d');grCx.fillStyle='#887755';grCx.fillRect(0,0,32,32);
+      for(var gri2=0;gri2<60;gri2++){grCx.fillStyle=Math.random()>0.5?'#776644':'#998866';grCx.fillRect(Math.random()*32,Math.random()*32,1+Math.random()*2,1+Math.random()*2)}
+      var gravelTex=new THREE.CanvasTexture(gravelCV);
+      var gravel=new THREE.Mesh(new THREE.PlaneGeometry(8,6),new THREE.MeshPhongMaterial({map:gravelTex}));
+      gravel.rotation.x=-Math.PI/2;gravel.position.set(gp.x+gravelOff.x,0.009,gp.z+gravelOff.z);
       gravel.rotation.z=-Math.atan2(-gtan.z,gtan.x);scene.add(gravel);
     }
+  }
+
+  // DRS zones (green boards + detection/activation markings)
+  var drsZones=[{detect:0.88,start:0.92,end:0.02},{detect:0.35,start:0.38,end:0.48}];
+  var drsBoardMat=new THREE.MeshBasicMaterial({color:0x00cc44});
+  for(var dzi=0;dzi<drsZones.length;dzi++){
+    var dz=drsZones[dzi];
+    // DRS detection board
+    var ddp=circuit.getPointAt(dz.detect);
+    var ddtan=circuit.getTangentAt(dz.detect);
+    var ddright=new V().crossVectors(ddtan,new V(0,1,0)).normalize();
+    for(var dds=-1;dds<=1;dds+=2){
+      var ddoff=ddright.clone().multiplyScalar(dds*(TRACK_W/2+1));
+      var dBoard=new THREE.Mesh(new THREE.BoxGeometry(0.3,1.5,0.15),drsBoardMat);
+      dBoard.position.set(ddp.x+ddoff.x,0.75,ddp.z+ddoff.z);dBoard.rotation.y=Math.atan2(-ddtan.z,ddtan.x);scene.add(dBoard);
+    }
+    // DRS start green line on track
+    var dsp=circuit.getPointAt(dz.start);
+    var dstan=circuit.getTangentAt(dz.start);
+    var dsLine=new THREE.Mesh(new THREE.PlaneGeometry(TRACK_W-1,0.4),new THREE.MeshBasicMaterial({color:0x00cc44}));
+    dsLine.rotation.x=-Math.PI/2;dsLine.position.set(dsp.x,0.035,dsp.z);
+    dsLine.rotation.z=-Math.atan2(-dstan.z,dstan.x);scene.add(dsLine);
   }
 
   // Camera crane structures at key points
@@ -576,7 +688,7 @@ function buildScene(){
     var crp=circuit.getPointAt(craneTs[cri]);
     var crtan=circuit.getTangentAt(craneTs[cri]);
     var crright=new V().crossVectors(crtan,new V(0,1,0)).normalize();
-    var crOff=crright.clone().multiplyScalar((cri%2===0?1:-1)*(TRACK_W/2+6));
+    var crOff=crright.clone().multiplyScalar((cri%2===0?1:-1)*(TRACK_W/2+9));
     // Vertical pole
     var crPole=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,12,6),craneMat);
     crPole.position.set(crp.x+crOff.x,6,crp.z+crOff.z);scene.add(crPole);
