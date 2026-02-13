@@ -162,8 +162,7 @@ function initThree(){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.1;
+  renderer.toneMapping=THREE.NoToneMapping;
   document.body.insertBefore(renderer.domElement,document.body.firstChild);
   camPos=new V(0,80,100);camTarget=new V(0,0,0);
   camGoalPos=new V(0,80,100);camGoalTarget=new V(0,0,0);camGoalFov=60;
@@ -267,25 +266,24 @@ function buildScene(){
   ground.rotation.x=-Math.PI/2;ground.position.y=-0.1;ground.receiveShadow=true;
   scene.add(ground);
 
-  // Tarmac run-off area (lighter grey asphalt)
+  // Tarmac run-off area (medium grey, darker than track)
   var runoffCV=document.createElement('canvas');runoffCV.width=64;runoffCV.height=64;
-  var roCx=runoffCV.getContext('2d');roCx.fillStyle='#556065';roCx.fillRect(0,0,64,64);
-  for(var roi=0;roi<120;roi++){roCx.fillStyle=Math.random()>0.5?'#4d5558':'#5a6468';roCx.fillRect(Math.random()*64,Math.random()*64,2+Math.random()*3,2+Math.random()*3)}
+  var roCx=runoffCV.getContext('2d');roCx.fillStyle='#687070';roCx.fillRect(0,0,64,64);
+  for(var roi=0;roi<120;roi++){roCx.fillStyle=Math.random()>0.5?'#606868':'#707878';roCx.fillRect(Math.random()*64,Math.random()*64,2+Math.random()*3,2+Math.random()*3)}
   var runoffTex=new THREE.CanvasTexture(runoffCV);runoffTex.wrapS=runoffTex.wrapT=THREE.RepeatWrapping;runoffTex.repeat.set(30,30);
   var runoffGeo=buildRibbonGeo(circuit,TRACK_W+12,500,0.008);
   scene.add(new THREE.Mesh(runoffGeo,new THREE.MeshBasicMaterial({map:runoffTex})));
 
-  // Track surface (proper visible grey asphalt)
+  // Track surface (bright grey asphalt - clearly visible)
   var trackCV=document.createElement('canvas');trackCV.width=128;trackCV.height=128;
-  var tCx=trackCV.getContext('2d');tCx.fillStyle='#606868';tCx.fillRect(0,0,128,128);
-  for(var txi=0;txi<200;txi++){tCx.fillStyle=Math.random()>0.5?'#585f5f':'#686f6f';tCx.fillRect(Math.random()*128,Math.random()*128,1+Math.random()*3,1+Math.random()*3)}
-  // Rubber marks / tire traces for realism
-  tCx.fillStyle='#505555';
+  var tCx=trackCV.getContext('2d');tCx.fillStyle='#808888';tCx.fillRect(0,0,128,128);
+  for(var txi=0;txi<200;txi++){tCx.fillStyle=Math.random()>0.5?'#778080':'#8a9090';tCx.fillRect(Math.random()*128,Math.random()*128,1+Math.random()*3,1+Math.random()*3)}
+  // Rubber marks / tire traces
+  tCx.fillStyle='#6a7070';
   for(var rmi=0;rmi<15;rmi++){tCx.fillRect(Math.random()*128,Math.random()*128,1,8+Math.random()*20)}
   var trackTex2=new THREE.CanvasTexture(trackCV);trackTex2.wrapS=trackTex2.wrapT=THREE.RepeatWrapping;trackTex2.repeat.set(40,40);
   var trackGeo=buildRibbonGeo(circuit,TRACK_W,500,0.02);
   var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshBasicMaterial({map:trackTex2}));
-  trackMesh.receiveShadow=true;
   scene.add(trackMesh);
 
   // White track edge lines (F1 style)
