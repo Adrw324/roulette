@@ -272,18 +272,17 @@ function buildScene(){
   for(var roi=0;roi<120;roi++){roCx.fillStyle=Math.random()>0.5?'#606868':'#707878';roCx.fillRect(Math.random()*64,Math.random()*64,2+Math.random()*3,2+Math.random()*3)}
   var runoffTex=new THREE.CanvasTexture(runoffCV);runoffTex.wrapS=runoffTex.wrapT=THREE.RepeatWrapping;runoffTex.repeat.set(30,30);
   var runoffGeo=buildRibbonGeo(circuit,TRACK_W+12,500,0.008);
-  scene.add(new THREE.Mesh(runoffGeo,new THREE.MeshBasicMaterial({map:runoffTex})));
+  scene.add(new THREE.Mesh(runoffGeo,new THREE.MeshBasicMaterial({map:runoffTex,fog:false})));
 
   // Track surface (bright grey asphalt - clearly visible)
   var trackCV=document.createElement('canvas');trackCV.width=128;trackCV.height=128;
   var tCx=trackCV.getContext('2d');tCx.fillStyle='#808888';tCx.fillRect(0,0,128,128);
   for(var txi=0;txi<200;txi++){tCx.fillStyle=Math.random()>0.5?'#778080':'#8a9090';tCx.fillRect(Math.random()*128,Math.random()*128,1+Math.random()*3,1+Math.random()*3)}
-  // Rubber marks / tire traces
   tCx.fillStyle='#6a7070';
   for(var rmi=0;rmi<15;rmi++){tCx.fillRect(Math.random()*128,Math.random()*128,1,8+Math.random()*20)}
   var trackTex2=new THREE.CanvasTexture(trackCV);trackTex2.wrapS=trackTex2.wrapT=THREE.RepeatWrapping;trackTex2.repeat.set(40,40);
   var trackGeo=buildRibbonGeo(circuit,TRACK_W,500,0.02);
-  var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshBasicMaterial({map:trackTex2}));
+  var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshBasicMaterial({map:trackTex2,fog:false}));
   scene.add(trackMesh);
 
   // White track edge lines (F1 style)
@@ -299,7 +298,7 @@ function buildScene(){
       elPos[eli*6+3]+=eloff.x;elPos[eli*6+5]+=eloff.z;
     }
     elGeo.attributes.position.needsUpdate=true;elGeo.computeVertexNormals();
-    scene.add(new THREE.Mesh(elGeo,new THREE.MeshBasicMaterial({color:0xffffff})));
+    scene.add(new THREE.Mesh(elGeo,new THREE.MeshBasicMaterial({color:0xffffff,fog:false})));
   }
 
   // Kerbs (red/white - F1 style with wider sausage kerbs)
@@ -325,7 +324,7 @@ function buildScene(){
       kPos[ki*6+3]+=off.x;kPos[ki*6+5]+=off.z;
     }
     kGeo.attributes.position.needsUpdate=true;kGeo.computeVertexNormals();
-    scene.add(new THREE.Mesh(kGeo,new THREE.MeshBasicMaterial({map:kTex})));
+    scene.add(new THREE.Mesh(kGeo,new THREE.MeshBasicMaterial({map:kTex,fog:false})));
     // Outer sausage kerb (yellow/blue)
     var k2Geo=buildRibbonGeo(circuit,0.8,500,0.045);
     var k2Pos=k2Geo.attributes.position.array;
@@ -338,7 +337,7 @@ function buildScene(){
       k2Pos[k2i*6+3]+=off2.x;k2Pos[k2i*6+5]+=off2.z;
     }
     k2Geo.attributes.position.needsUpdate=true;k2Geo.computeVertexNormals();
-    scene.add(new THREE.Mesh(k2Geo,new THREE.MeshBasicMaterial({map:k2Tex})));
+    scene.add(new THREE.Mesh(k2Geo,new THREE.MeshBasicMaterial({map:k2Tex,fog:false})));
   }
 
   // TecPro barriers (pushed out beyond run-off - F1 style)
@@ -359,7 +358,7 @@ function buildScene(){
   }
 
   // Lane center dashes
-  var dMat=new THREE.MeshBasicMaterial({color:0x555555});
+  var dMat=new THREE.MeshBasicMaterial({color:0x999999,fog:false});
   for(var di=0;di<120;di++){
     var dt=di/120;
     var dp=circuit.getPointAt(dt);
@@ -378,14 +377,14 @@ function buildScene(){
   var fp=circuit.getPointAt(0);
   var ftan=circuit.getTangentAt(0);
   var fright=new V().crossVectors(ftan,new V(0,1,0)).normalize();
-  var fMesh=new THREE.Mesh(new THREE.PlaneGeometry(2,TRACK_W),new THREE.MeshBasicMaterial({map:fTex}));
+  var fMesh=new THREE.Mesh(new THREE.PlaneGeometry(2,TRACK_W),new THREE.MeshBasicMaterial({map:fTex,fog:false}));
   fMesh.rotation.x=-Math.PI/2;
   fMesh.position.set(fp.x,0.05,fp.z);
   fMesh.rotation.z=-Math.atan2(-ftan.z,ftan.x);
   scene.add(fMesh);
 
   // Starting grid position markings (F1 grid boxes)
-  var gridMat=new THREE.MeshBasicMaterial({color:0xffffff});
+  var gridMat=new THREE.MeshBasicMaterial({color:0xffffff,fog:false});
   for(var gr=0;gr<20;gr++){
     var grow=Math.floor(gr/2);
     var gcol=gr%2;
